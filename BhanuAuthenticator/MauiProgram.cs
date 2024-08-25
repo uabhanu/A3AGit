@@ -1,24 +1,24 @@
-﻿using Microsoft.Extensions.Logging;
-
-namespace BhanuAuthenticator;
-
-public static class MauiProgram
+﻿namespace BhanuAuthenticator
 {
-    public static MauiApp CreateMauiApp()
+    using Microsoft.Extensions.Logging;
+    
+    public static class MauiProgram
     {
-        var builder = MauiApp.CreateBuilder();
-        builder
-            .UseMauiApp<App>()
-            .ConfigureFonts(fonts =>
+        public static MauiApp CreateMauiApp()
+        {
+            var builder = MauiApp.CreateBuilder();
+            
+            builder.UseMauiApp<App>().ConfigureFonts(fonts =>
             {
-                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                fonts.AddFont("OpenSans-Regular.ttf" , "OpenSansRegular");
+                fonts.AddFont("OpenSans-Semibold.ttf" , "OpenSansSemibold");
             });
 
-#if DEBUG
-        builder.Logging.AddDebug();
-#endif
+            #if DEBUG
+                builder.Logging.AddDebug();
+            #endif
 
-        return builder.Build();
-    }
+            return builder.Build();
+        }
+    }   
 }
