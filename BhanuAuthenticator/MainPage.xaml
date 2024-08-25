@@ -5,55 +5,59 @@
              BackgroundColor="Blue"
              NavigationPage.HasNavigationBar="False">
 
-    <StackLayout Padding="20" VerticalOptions="CenterAndExpand" Spacing="15">
+    <Grid Padding="5">
+        <!-- Top section -->
+        <StackLayout Grid.Row="0" VerticalOptions="Start" Spacing="3">
+            <!-- Top Header -->
+            <Label Text="Able 3 Authenticator"
+                   FontSize="Large"
+                   TextColor="Cyan"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Start" />
 
-        <!-- Top Header -->
-        <Label Text="Able 3 Authenticator" 
-               FontSize="Large" 
-               TextColor="Cyan" 
-               HorizontalOptions="Center" 
-               VerticalOptions="Start" />
+            <!-- OTP Display with Cyan Background and Blue Foreground -->
+            <Frame BackgroundColor="Cyan" Padding="10" CornerRadius="10" HorizontalOptions="Center">
+                <Label x:Name="OtpLabel"
+                       Text="00 00 00"
+                       FontSize="Large"
+                       TextColor="Blue"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center" />
+            </Frame>
 
-        <!-- OTP Display with Cyan Background and Blue Foreground -->
-        <Frame BackgroundColor="Cyan" Padding="10" CornerRadius="10" HorizontalOptions="Center">
-            <Label x:Name="OtpLabel" 
-                   Text="00 00 00" 
-                   FontSize="Large" 
-                   TextColor="Blue" 
-                   HorizontalOptions="Center" 
-                   VerticalOptions="Center" />
-        </Frame>
+            <!-- For one time use only Label with Yellow color -->
+            <Label Text="For one time use only!"
+                   FontSize="Small"
+                   TextColor="Yellow"
+                   HorizontalOptions="Center" />
+        </StackLayout>
 
-        <!-- For one time use only Label with Yellow color -->
-        <Label Text="For one time use only!" 
-               FontSize="Small" 
-               TextColor="Yellow" 
-               HorizontalOptions="Center" />
+        <!-- Bottom section -->
+        <StackLayout Grid.Row="1" VerticalOptions="EndAndExpand" Spacing="3">
+            <!-- Expiry Message -->
+            <Label Text="Authcode will expire in"
+                   FontSize="Medium"
+                   TextColor="Cyan"
+                   HorizontalOptions="Center" />
 
-        <!-- Expiry Message -->
-        <Label Text="Authcode will expire in" 
-               FontSize="Medium" 
-               TextColor="Cyan" 
-               HorizontalOptions="Center" />
+            <!-- Countdown Timer -->
+            <Label x:Name="CountdownLabel"
+                   Text="10 second(s)"
+                   FontSize="Large"
+                   TextColor="White"
+                   HorizontalOptions="Center"
+                   VerticalOptions="EndAndExpand" />
 
-        <!-- Countdown Timer -->
-        <Label x:Name="CountdownLabel" 
-               Text="10 second(s)" 
-               FontSize="Large" 
-               TextColor="White" 
-               HorizontalOptions="Center" 
-               VerticalOptions="EndAndExpand" />
-
-        <!-- Copy Authcode Button -->
-        <Button Text="Copy Authcode" 
-                FontSize="Medium" 
-                BackgroundColor="LightGreen" 
-                TextColor="Black" 
-                CornerRadius="20" 
-                HorizontalOptions="Center" 
-                VerticalOptions="End" 
-                Clicked="CopyAuthcode_Clicked" />
-
-    </StackLayout>
+            <!-- Copy Authcode Button -->
+            <Button Text="Copy Authcode"
+                    FontSize="Medium"
+                    BackgroundColor="LightGreen"
+                    TextColor="Black"
+                    CornerRadius="20"
+                    HorizontalOptions="Center"
+                    VerticalOptions="End"
+                    Clicked="CopyAuthcode_Clicked" />
+        </StackLayout>
+    </Grid>
 
 </ContentPage>
