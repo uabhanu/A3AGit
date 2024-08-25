@@ -1,0 +1,59 @@
+﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="BhanuAuthenticator.MainPage"
+             Title=""
+             BackgroundColor="Blue"
+             NavigationPage.HasNavigationBar="False">
+
+    <StackLayout Padding="20" VerticalOptions="CenterAndExpand" Spacing="15">
+
+        <!-- Top Header -->
+        <Label Text="Able 3 Authenticator" 
+               FontSize="Large" 
+               TextColor="Cyan" 
+               HorizontalOptions="Center" 
+               VerticalOptions="Start" />
+
+        <!-- OTP Display with Cyan Background and Blue Foreground -->
+        <Frame BackgroundColor="Cyan" Padding="10" CornerRadius="10" HorizontalOptions="Center">
+            <Label x:Name="OtpLabel" 
+                   Text="00 00 00" 
+                   FontSize="Large" 
+                   TextColor="Blue" 
+                   HorizontalOptions="Center" 
+                   VerticalOptions="Center" />
+        </Frame>
+
+        <!-- For one time use only Label with Yellow color -->
+        <Label Text="For one time use only!" 
+               FontSize="Small" 
+               TextColor="Yellow" 
+               HorizontalOptions="Center" />
+
+        <!-- Expiry Message -->
+        <Label Text="Authcode will expire in" 
+               FontSize="Medium" 
+               TextColor="Cyan" 
+               HorizontalOptions="Center" />
+
+        <!-- Countdown Timer -->
+        <Label x:Name="CountdownLabel" 
+               Text="10 second(s)" 
+               FontSize="Large" 
+               TextColor="White" 
+               HorizontalOptions="Center" 
+               VerticalOptions="EndAndExpand" />
+
+        <!-- Copy Authcode Button -->
+        <Button Text="Copy Authcode" 
+                FontSize="Medium" 
+                BackgroundColor="LightGreen" 
+                TextColor="Black" 
+                CornerRadius="20" 
+                HorizontalOptions="Center" 
+                VerticalOptions="End" 
+                Clicked="CopyAuthcode_Clicked" />
+
+    </StackLayout>
+
+</ContentPage>
