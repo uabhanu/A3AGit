@@ -19,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.*
 
 class MainActivity : ComponentActivity() {
@@ -41,6 +42,7 @@ fun OTPScreen(modifier: Modifier = Modifier) {
     // State for the OTP and the countdown timer
     var otp by remember { mutableStateOf(generateOTP()) }
     var countdown by remember { mutableStateOf(10) }
+    var isButtonEnabled by remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -57,6 +59,16 @@ fun OTPScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // Function to handle the button click
+    fun handleCopyClick() {
+        copyToClipboard(context, otp)
+        isButtonEnabled = false
+        coroutineScope.launch {
+            delay(2000L) // Disable button for 2 seconds
+            isButtonEnabled = true
+        }
+    }
+
     // Layout for the OTP screen
     Column(
         modifier = modifier
@@ -68,9 +80,7 @@ fun OTPScreen(modifier: Modifier = Modifier) {
         Text(text = "Able 3 Authenticator", modifier = Modifier.padding(bottom = 16.dp))
         Text(text = "OTP: ${otp.chunked(2).joinToString(" ")}", modifier = Modifier.padding(bottom = 16.dp))
         Text(text = "Auth code expires in: $countdown seconds", modifier = Modifier.padding(bottom = 16.dp))
-        Button(onClick = {
-            copyToClipboard(context, otp)
-        }) {
+        Button(onClick = { handleCopyClick() }, enabled = isButtonEnabled) {
             Text("Copy Authcode")
         }
     }
