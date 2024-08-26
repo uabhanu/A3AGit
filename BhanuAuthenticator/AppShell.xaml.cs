@@ -1,9 +1,10 @@
-﻿namespace BhanuAuthenticator;
-
-public partial class AppShell
+﻿namespace BhanuAuthenticator
 {
-    public AppShell()
+    public partial class AppShell
     {
-        InitializeComponent();
-    }
+        public AppShell()
+        {
+            InitializeComponent();
+        }
+    }   
 }
