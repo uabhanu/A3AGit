@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,6 +66,7 @@ fun OTPScreen(modifier: Modifier = Modifier) {
         isButtonEnabled = false
         coroutineScope.launch {
             delay(2000L) // Disable button for 2 seconds
+            clearClipboard(context) // Clear the clipboard after the delay
             isButtonEnabled = true
         }
     }
@@ -73,15 +75,37 @@ fun OTPScreen(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(top = 32.dp), // Adjusted padding to move everything down
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "Able 3 Authenticator", modifier = Modifier.padding(bottom = 16.dp))
-        Text(text = "OTP: ${otp.chunked(2).joinToString(" ")}", modifier = Modifier.padding(bottom = 16.dp))
-        Text(text = "Auth code expires in: $countdown seconds", modifier = Modifier.padding(bottom = 16.dp))
-        Button(onClick = { handleCopyClick() }, enabled = isButtonEnabled) {
-            Text("Copy Authcode")
+        // Top Section: Title and OTP
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
+        ) {
+            Text(text = "Able 3 Authenticator", fontSize = 24.sp)
+            Spacer(modifier = Modifier.height(16.dp)) // Spacer to add space between Title and OTP
+            Text(text = otp.chunked(2).joinToString(" "), fontSize = 24.sp)
+        }
+
+        Spacer(modifier = Modifier.weight(1f)) // Spacer to push the bottom section down
+
+        // Bottom Section: Expiration Info and Button
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Bottom
+        ) {
+            Text(text = "Authcode will expire in", fontSize = 18.sp)
+            Text(text = "$countdown", fontSize = 24.sp)
+            Text(text = "second(s)", modifier = Modifier.padding(bottom = 24.dp), fontSize = 18.sp)
+            Button(onClick = { handleCopyClick() }, enabled = isButtonEnabled) {
+                Text("Copy Authcode")
+            }
         }
     }
 }
@@ -97,6 +121,14 @@ fun copyToClipboard(context: Context, text: String) {
     val clip = ClipData.newPlainText("OTP", text)
     clipboard.setPrimaryClip(clip)
     Toast.makeText(context, "OTP copied to clipboard", Toast.LENGTH_SHORT).show()
+}
+
+// Function to clear the clipboard
+fun clearClipboard(context: Context) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val emptyClip = ClipData.newPlainText("", "")
+    clipboard.setPrimaryClip(emptyClip)
+    Toast.makeText(context, "Clipboard cleared", Toast.LENGTH_SHORT).show()
 }
 
 @Preview(showBackground = true)
