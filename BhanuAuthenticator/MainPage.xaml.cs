@@ -5,10 +5,11 @@
     
     public partial class MainPage
     {
-        private Timer _timer;
+        private static Random random = new();
+        
         private int _remainingTime = 10;
         private string _currentOTP;
-        private static Random random = new();
+        private Timer _timer;
         
         private void CopyAuthcode_Clicked(object sender , EventArgs e)
         {
