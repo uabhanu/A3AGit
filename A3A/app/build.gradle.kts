@@ -61,6 +61,11 @@ dependencies {
     implementation(libs.androidx.material3)
 
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
+    implementation("androidx.compose.material:material-icons-extended:1.0.5")
+    implementation("com.google.mlkit:barcode-scanning:17.0.2")
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -1,9 +1,12 @@
 package com.Able3Studios.A3A
 
+import android.Manifest
 import android.app.KeyguardManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -12,6 +15,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,11 +29,20 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.*
+import kotlin.random.Random
 
 class MainActivity : FragmentActivity() {
+
+    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+        if (isGranted) {
+            startBarcodeScanner()
+        } else {
+            Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,7 +55,6 @@ class MainActivity : FragmentActivity() {
             Log.e("MainActivity", "Error during initialization: ${e.message}")
         }
 
-        // Start authentication process
         authenticateUser()
     }
 
@@ -58,7 +72,12 @@ class MainActivity : FragmentActivity() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
                 setContent {
-                    OTPScreen(modifier = Modifier.fillMaxSize())
+                    A3ATheme {
+                        MainScreen(
+                            onStartBarcodeScanner = { startBarcodeScanner() },
+                            onRequestCameraPermission = { requestCameraPermission() }
+                        )
+                    }
                 }
             }
 
@@ -96,19 +115,100 @@ class MainActivity : FragmentActivity() {
 
     private val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
-            setContent { OTPScreen(modifier = Modifier.fillMaxSize()) }
+            setContent {
+                A3ATheme {
+                    MainScreen(
+                        onStartBarcodeScanner = { startBarcodeScanner() },
+                        onRequestCameraPermission = { requestCameraPermission() }
+                    )
+                }
+            }
         } else {
             Toast.makeText(this, "Authentication Failed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun requestCameraPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+        } else {
+            startBarcodeScanner()
+        }
+    }
+
+    private fun startBarcodeScanner() {
+        val intent = Intent(this, BarcodeScannerActivity::class.java)
+        startActivity(intent)
+    }
+}
+
+@Composable
+fun MainScreen(
+    onStartBarcodeScanner: () -> Unit,
+    onRequestCameraPermission: () -> Unit
+) {
+    var selectedItem by remember { mutableStateOf(0) }
+    val items = listOf("Home", "Barcode Scanner")
+
+    val context = LocalContext.current // Obtain the context here
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        icon = {
+                            when (index) {
+                                0 -> Icon(Icons.Filled.Home, contentDescription = null)
+                                1 -> Icon(Icons.Filled.QrCodeScanner, contentDescription = null)
+                            }
+                        },
+                        label = { Text(item) },
+                        selected = selectedItem == index,
+                        onClick = {
+                            selectedItem = index
+                            when (index) {
+                                0 -> {
+                                    // Home Screen, do nothing as this is the default
+                                }
+                                1 -> {
+                                    // Check for camera permission
+                                    if (ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.CAMERA
+                                        ) == PackageManager.PERMISSION_GRANTED
+                                    ) {
+                                        onStartBarcodeScanner()
+                                    } else {
+                                        // Request permission if not granted
+                                        onRequestCameraPermission()
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            when (selectedItem) {
+                0 -> OTPScreen()
+                // 1 -> Barcode Scanner Activity is launched directly, so no UI here.
+            }
         }
     }
 }
 
 @Composable
 fun OTPScreen(modifier: Modifier = Modifier) {
-    // State for the OTP and the countdown timer
     var otp by remember { mutableStateOf(generateOTP()) }
     var countdown by remember { mutableStateOf(10) }
-    var isButtonEnabled by remember { mutableStateOf(true) }
+    val isButtonEnabled = remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -125,17 +225,6 @@ fun OTPScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    // Function to handle the button click
-    fun handleCopyClick() {
-        copyToClipboard(context, otp)
-        isButtonEnabled = false
-        coroutineScope.launch {
-            delay(2000L) // Disable button for 2 seconds
-            clearClipboard(context) // Clear the clipboard after the delay
-            isButtonEnabled = true
-        }
-    }
-
     // Layout for the OTP screen
     Column(
         modifier = modifier
@@ -143,7 +232,6 @@ fun OTPScreen(modifier: Modifier = Modifier) {
             .padding(top = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Top Section: Title and OTP
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -156,7 +244,6 @@ fun OTPScreen(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Bottom Section: Expiration Info and Button
         Column(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -165,19 +252,27 @@ fun OTPScreen(modifier: Modifier = Modifier) {
             Text(text = "Authcode will expire in", fontSize = 18.sp)
             Text(text = "$countdown", fontSize = 24.sp)
             Text(text = "second(s)", modifier = Modifier.padding(bottom = 24.dp), fontSize = 18.sp)
-            Button(onClick = { handleCopyClick() }, enabled = isButtonEnabled) {
+            Button(onClick = { handleCopyClick(context, otp, coroutineScope, isButtonEnabled) }, enabled = isButtonEnabled.value) {
                 Text("Copy Authcode")
             }
         }
     }
 }
 
-// Function to generate a 6-digit OTP
-fun generateOTP(): String {
-    return (Random().nextInt(900000) + 100000).toString()
+fun handleCopyClick(context: Context, otp: String, coroutineScope: CoroutineScope, isButtonEnabled: MutableState<Boolean>) {
+    copyToClipboard(context, otp)
+    isButtonEnabled.value = false // Update MutableState
+    coroutineScope.launch {
+        delay(2000L)
+        clearClipboard(context)
+        isButtonEnabled.value = true // Re-enable button
+    }
 }
 
-// Function to copy the OTP to the clipboard
+fun generateOTP(): String {
+    return (Random.nextInt(900000) + 100000).toString()
+}
+
 fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val clip = ClipData.newPlainText("OTP", text)
@@ -185,7 +280,6 @@ fun copyToClipboard(context: Context, text: String) {
     Toast.makeText(context, "OTP copied to clipboard", Toast.LENGTH_SHORT).show()
 }
 
-// Function to clear the clipboard
 fun clearClipboard(context: Context) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val emptyClip = ClipData.newPlainText("", "")
@@ -197,6 +291,9 @@ fun clearClipboard(context: Context) {
 @Composable
 fun OTPScreenPreview() {
     A3ATheme {
-        OTPScreen()
+        MainScreen(
+            onStartBarcodeScanner = {},
+            onRequestCameraPermission = {}
+        ) // Preview with MainScreen
     }
 }
