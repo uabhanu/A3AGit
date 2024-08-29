@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
-import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -31,52 +30,59 @@ class BarcodeScannerActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         // Check camera permissions and start camera
-        if (allPermissionsGranted()) {
-            startCamera()
-        } else {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
                 this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
             )
+        } else {
+            startCamera()
         }
     }
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
-        cameraProviderFuture.addListener({
-            // Used to bind the lifecycle of cameras to the lifecycle owner
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-
-            // Preview
-            val preview = Preview.Builder()
-                .build()
-                .also {
-                    it.setSurfaceProvider(findViewById<PreviewView>(R.id.camera_preview).surfaceProvider)
-                }
-
-            // Barcode scanning
-            val barcodeAnalyzer = BarcodeAnalyzer { image ->
-                processBarcode(image)
-            }
-
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also {
-                    it.setAnalyzer(cameraExecutor, barcodeAnalyzer)
-                }
-
+        cameraProviderFuture.addListener(Runnable {
             try {
-                // Unbind use cases before rebinding
-                cameraProvider.unbindAll()
+                // Safe cast and then use the cameraProvider
+                val cameraProvider = cameraProviderFuture.get()
 
-                // Bind use cases to camera
-                cameraProvider.bindToLifecycle(
-                    this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis
-                )
+                // Preview
+                val preview = Preview.Builder()
+                    .build()
+                    .also {
+                        it.setSurfaceProvider(findViewById<PreviewView>(R.id.camera_preview).surfaceProvider)
+                    }
 
-            } catch (exc: Exception) {
-                Log.e(TAG, "Use case binding failed", exc)
+                // Barcode scanning
+                val barcodeAnalyzer = BarcodeAnalyzer { image ->
+                    processBarcode(image)
+                }
+
+                val imageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also {
+                        it.setAnalyzer(cameraExecutor, barcodeAnalyzer)
+                    }
+
+                try {
+                    // Unbind use cases before rebinding
+                    cameraProvider.unbindAll()
+
+                    // Bind use cases to camera
+                    cameraProvider.bindToLifecycle(
+                        this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis
+                    )
+
+                } catch (exc: Exception) {
+                    Log.e(TAG, "Use case binding failed", exc)
+                    Toast.makeText(this, "Camera initialization failed.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Camera provider initialization failed", e)
+                Toast.makeText(this, "Failed to initialize camera", Toast.LENGTH_SHORT).show()
             }
 
         }, ContextCompat.getMainExecutor(this))
@@ -84,7 +90,7 @@ class BarcodeScannerActivity : AppCompatActivity() {
 
     private fun processBarcode(image: InputImage) {
         val options = BarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)  // Now using correct Barcode class
             .build()
 
         val scanner = BarcodeScanning.getClient(options)
@@ -123,7 +129,7 @@ class BarcodeScannerActivity : AppCompatActivity() {
 }
 
 class BarcodeAnalyzer(private val onBarcodeDetected: (InputImage) -> Unit) : ImageAnalysis.Analyzer {
-    @OptIn(ExperimentalGetImage::class)
+    @androidx.camera.core.ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image
         if (mediaImage != null) {
