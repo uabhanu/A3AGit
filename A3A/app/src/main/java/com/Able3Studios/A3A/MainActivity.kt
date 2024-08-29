@@ -15,9 +15,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +26,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
-import kotlinx.coroutines.CoroutineScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.QrCodeScanner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
@@ -47,10 +46,8 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Safe access to PackageManager with logging
         try {
             val packageManager = this.packageManager
-            // Additional initialization logic, if any
         } catch (e: Exception) {
             Log.e("MainActivity", "Error during initialization: ${e.message}")
         }
@@ -83,7 +80,7 @@ class MainActivity : FragmentActivity() {
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 super.onAuthenticationError(errorCode, errString)
-                showDeviceCredentialPrompt() // Fallback to device credentials if biometrics fails
+                showDeviceCredentialPrompt()
             }
 
             override fun onAuthenticationFailed() {
@@ -153,8 +150,20 @@ fun MainScreen(
 ) {
     var selectedItem by remember { mutableStateOf(0) }
     val items = listOf("Home", "Barcode Scanner")
+    var currentOTP by remember { mutableStateOf<String?>(null) }
+    var countdown by remember { mutableStateOf(10) }
+    val context = LocalContext.current
 
-    val context = LocalContext.current // Obtain the context here
+    LaunchedEffect(currentOTP) {
+        if (currentOTP != null) {
+            countdown = 10
+            while (countdown > 0) {
+                delay(1000L)
+                countdown--
+            }
+            currentOTP = null // Reset OTP after countdown
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -172,11 +181,8 @@ fun MainScreen(
                         onClick = {
                             selectedItem = index
                             when (index) {
-                                0 -> {
-                                    // Home Screen, do nothing as this is the default
-                                }
+                                0 -> { /* Do nothing for Home */ }
                                 1 -> {
-                                    // Check for camera permission
                                     if (ContextCompat.checkSelfPermission(
                                             context,
                                             Manifest.permission.CAMERA
@@ -184,7 +190,6 @@ fun MainScreen(
                                     ) {
                                         onStartBarcodeScanner()
                                     } else {
-                                        // Request permission if not granted
                                         onRequestCameraPermission()
                                     }
                                 }
@@ -195,77 +200,49 @@ fun MainScreen(
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            when (selectedItem) {
-                0 -> OTPScreen()
-                // 1 -> Barcode Scanner Activity is launched directly, so no UI here.
-            }
-        }
-    }
-}
-
-@Composable
-fun OTPScreen(modifier: Modifier = Modifier) {
-    var otp by remember { mutableStateOf(generateOTP()) }
-    var countdown by remember { mutableStateOf(10) }
-    val isButtonEnabled = remember { mutableStateOf(true) }
-    val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-
-    // Start a coroutine that updates the OTP and countdown timer
-    LaunchedEffect(Unit) {
-        while (true) {
-            if (countdown > 0) {
-                delay(1000L)
-                countdown--
-            } else {
-                otp = generateOTP()
-                countdown = 10
-            }
-        }
-    }
-
-    // Layout for the OTP screen
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(top = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Text(text = "Able 3 Authenticator", fontSize = 24.sp)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = otp.chunked(2).joinToString(" "), fontSize = 24.sp)
-        }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 48.dp)
+            ) {
+                Text(text = "Able 3 Authenticator", fontSize = 24.sp)
+                Spacer(modifier = Modifier.height(32.dp))
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Bottom
-        ) {
-            Text(text = "Authcode will expire in", fontSize = 18.sp)
-            Text(text = "$countdown", fontSize = 24.sp)
-            Text(text = "second(s)", modifier = Modifier.padding(bottom = 24.dp), fontSize = 18.sp)
-            Button(onClick = { handleCopyClick(context, otp, coroutineScope, isButtonEnabled) }, enabled = isButtonEnabled.value) {
-                Text("Copy Authcode")
+                if (currentOTP == null) {
+                    Card(
+                        modifier = Modifier.padding(16.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Text(
+                            text = "No OTPs Yet",
+                            fontSize = 24.sp,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                } else {
+                    currentOTP?.let { otp -> // Use let to safely handle non-null otp
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(text = "OTP: $otp", fontSize = 24.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = "Expires in $countdown seconds", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = {
+                                copyToClipboard(context, otp)
+                            }) {
+                                Text("Copy Authcode")
+                            }
+                        }
+                    }
+                }
             }
         }
-    }
-}
-
-fun handleCopyClick(context: Context, otp: String, coroutineScope: CoroutineScope, isButtonEnabled: MutableState<Boolean>) {
-    copyToClipboard(context, otp)
-    isButtonEnabled.value = false // Update MutableState
-    coroutineScope.launch {
-        delay(2000L)
-        clearClipboard(context)
-        isButtonEnabled.value = true // Re-enable button
     }
 }
 
@@ -280,13 +257,6 @@ fun copyToClipboard(context: Context, text: String) {
     Toast.makeText(context, "OTP copied to clipboard", Toast.LENGTH_SHORT).show()
 }
 
-fun clearClipboard(context: Context) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val emptyClip = ClipData.newPlainText("", "")
-    clipboard.setPrimaryClip(emptyClip)
-    Toast.makeText(context, "Clipboard cleared", Toast.LENGTH_SHORT).show()
-}
-
 @Preview(showBackground = true)
 @Composable
 fun OTPScreenPreview() {
@@ -294,6 +264,6 @@ fun OTPScreenPreview() {
         MainScreen(
             onStartBarcodeScanner = {},
             onRequestCameraPermission = {}
-        ) // Preview with MainScreen
+        )
     }
 }
