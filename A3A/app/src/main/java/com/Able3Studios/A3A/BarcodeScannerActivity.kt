@@ -22,6 +22,7 @@ class BarcodeScannerActivity : AppCompatActivity() {
 
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var previewView: PreviewView
+    private lateinit var cameraProvider: ProcessCameraProvider  // Declare cameraProvider here
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,8 +49,8 @@ class BarcodeScannerActivity : AppCompatActivity() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
-            // CameraProvider
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            // Initialize cameraProvider
+            cameraProvider = cameraProviderFuture.get()
 
             // Preview
             val preview = Preview.Builder()
@@ -154,6 +155,20 @@ class BarcodeScannerActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Unbind the camera use cases and release resources when the activity is not in the foreground
+        if (::cameraProvider.isInitialized) {
+            cameraProvider.unbindAll()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Restart the camera when the activity comes back to the foreground
+        startCamera()
     }
 
     companion object {
