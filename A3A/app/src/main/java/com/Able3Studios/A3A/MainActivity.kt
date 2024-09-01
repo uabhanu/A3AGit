@@ -112,16 +112,22 @@ class MainActivity : FragmentActivity() {
 
     private val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
-            setContent {
-                A3ATheme {
-                    MainScreen(
-                        onStartBarcodeScanner = { startBarcodeScanner() },
-                        onRequestCameraPermission = { requestCameraPermission() }
-                    )
+            val scannedBarcode = result.data?.getStringExtra("SCANNED_BARCODE")
+            scannedBarcode?.let {
+                val otp = generateOTP()
+
+                setContent {
+                    A3ATheme {
+                        MainScreen(
+                            onStartBarcodeScanner = { startBarcodeScanner() },
+                            onRequestCameraPermission = { requestCameraPermission() },
+                            otp = otp // Pass the generated OTP to MainScreen
+                        )
+                    }
                 }
             }
         } else {
-            Toast.makeText(this, "Authentication Failed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Barcode scanning failed or canceled", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -139,29 +145,39 @@ class MainActivity : FragmentActivity() {
 
     private fun startBarcodeScanner() {
         val intent = Intent(this, BarcodeScannerActivity::class.java)
-        startActivity(intent)
+        startForResult.launch(intent)
     }
 }
 
 @Composable
 fun MainScreen(
     onStartBarcodeScanner: () -> Unit,
-    onRequestCameraPermission: () -> Unit
+    onRequestCameraPermission: () -> Unit,
+    otp: String? = null // Accept the OTP as a parameter
 ) {
     var selectedItem by remember { mutableStateOf(0) }
     val items = listOf("Home", "Barcode Scanner")
-    var currentOTP by remember { mutableStateOf<String?>(null) }
-    var countdown by remember { mutableStateOf(10) }
+    var otps by remember { mutableStateOf(listOf<Pair<String, Int>>()) } // List of OTPs with countdowns
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(currentOTP) {
-        if (currentOTP != null) {
-            countdown = 10
-            while (countdown > 0) {
-                delay(1000L)
-                countdown--
+    LaunchedEffect(otp) {
+        if (otp != null) {
+            otps = otps + Pair(otp, 10) // Add new OTP with countdown set to 10 seconds
+
+            // Start countdown for the new OTP
+            scope.launch {
+                while (true) {
+                    delay(1000L)
+                    otps = otps.map { (currentOtp, countdown) ->
+                        if (countdown > 1) {
+                            Pair(currentOtp, countdown - 1) // Decrease countdown
+                        } else {
+                            Pair(generateOTP(), 10) // Reset OTP and countdown when it reaches zero
+                        }
+                    }
+                }
             }
-            currentOTP = null // Reset OTP after countdown
         }
     }
 
@@ -213,7 +229,7 @@ fun MainScreen(
                 Text(text = "Able 3 Authenticator", fontSize = 24.sp)
                 Spacer(modifier = Modifier.height(32.dp))
 
-                if (currentOTP == null) {
+                if (otps.isEmpty()) {
                     Card(
                         modifier = Modifier.padding(16.dp),
                         elevation = CardDefaults.cardElevation(4.dp)
@@ -225,18 +241,24 @@ fun MainScreen(
                         )
                     }
                 } else {
-                    currentOTP?.let { otp -> // Use let to safely handle non-null otp
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                    otps.forEach { (otp, countdown) ->
+                        Card(
+                            modifier = Modifier.padding(16.dp),
+                            elevation = CardDefaults.cardElevation(4.dp)
                         ) {
-                            Text(text = "OTP: $otp", fontSize = 24.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = "Expires in $countdown seconds", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = {
-                                copyToClipboard(context, otp)
-                            }) {
-                                Text("Copy Authcode")
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Text(text = "OTP: $otp", fontSize = 24.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = "Expires in $countdown seconds", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(onClick = {
+                                    copyToClipboard(context, otp)
+                                }) {
+                                    Text("Copy Authcode")
+                                }
                             }
                         }
                     }

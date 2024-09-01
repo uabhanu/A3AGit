@@ -1,6 +1,7 @@
 package com.Able3Studios.A3A
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -17,6 +18,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.random.Random
 
 class BarcodeScannerActivity : AppCompatActivity() {
 
@@ -122,14 +124,19 @@ class BarcodeScannerActivity : AppCompatActivity() {
     }
 
     private fun handleScannedBarcode(rawValue: String) {
-        // Print to logcat
+
         Log.d(TAG, "Barcode Scan Successful: $rawValue")
 
-        // Show a toast message to the user
         Toast.makeText(this, "Barcode Scan Successful: $rawValue", Toast.LENGTH_SHORT).show()
 
-        // Implement further handling of the scanned barcode value here
-        // For example, you could start a new Activity, store the barcode, etc.
+        if (::cameraProvider.isInitialized) {
+            cameraProvider.unbindAll()
+        }
+
+        val resultIntent = Intent()
+        resultIntent.putExtra("SCANNED_BARCODE", rawValue)
+        setResult(RESULT_OK, resultIntent)
+        finish()
     }
 
     override fun onRequestPermissionsResult(
