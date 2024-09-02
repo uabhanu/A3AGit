@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -39,6 +40,8 @@ import org.apache.commons.codec.binary.Base32
 
 class MainActivity : FragmentActivity() {
 
+    private lateinit var sharedPreferences: SharedPreferences
+
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
         if (isGranted) {
             startBarcodeScanner()
@@ -49,6 +52,8 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        sharedPreferences = getSharedPreferences("Able3Studios", Context.MODE_PRIVATE)
 
         try {
             val packageManager = this.packageManager
@@ -76,7 +81,8 @@ class MainActivity : FragmentActivity() {
                     A3ATheme {
                         MainScreen(
                             onStartBarcodeScanner = { startBarcodeScanner() },
-                            onRequestCameraPermission = { requestCameraPermission() }
+                            onRequestCameraPermission = { requestCameraPermission() },
+                            sharedPreferences = sharedPreferences
                         )
                     }
                 }
@@ -122,7 +128,8 @@ class MainActivity : FragmentActivity() {
                     MainScreen(
                         onStartBarcodeScanner = { startBarcodeScanner() },
                         onRequestCameraPermission = { requestCameraPermission() },
-                        barcode = barcode // Pass the scanned barcode to MainScreen
+                        barcode = barcode, // Pass the scanned barcode to MainScreen
+                        sharedPreferences = sharedPreferences
                     )
                 }
             }
@@ -153,7 +160,8 @@ class MainActivity : FragmentActivity() {
 fun MainScreen(
     onStartBarcodeScanner: () -> Unit,
     onRequestCameraPermission: () -> Unit,
-    barcode: String? = null // Accept the scanned barcode as a parameter
+    barcode: String? = null, // Accept the scanned barcode as a parameter
+    sharedPreferences: SharedPreferences
 ) {
     var selectedItem by remember { mutableStateOf(0) }
     val items = listOf("Home", "Barcode Scanner")
@@ -163,6 +171,24 @@ fun MainScreen(
     var secretKey by remember { mutableStateOf<String?>(null) } // To store the secret key
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    fun saveOTP(otp: String, websiteName: String, secretKey: String) {
+        sharedPreferences.edit().putString("otp", otp)
+            .putString("websiteName", websiteName)
+            .putString("secretKey", secretKey)
+            .apply()
+    }
+
+    fun loadOTP(): Triple<String?, String?, String?> {
+        val otp = sharedPreferences.getString("otp", null)
+        val websiteName = sharedPreferences.getString("websiteName", null)
+        val secretKey = sharedPreferences.getString("secretKey", null)
+        return Triple(otp, websiteName, secretKey)
+    }
+
+    fun clearOTP() {
+        sharedPreferences.edit().clear().apply()
+    }
 
     // Function to extract website name from barcode
     fun extractWebsiteName(barcode: String): String {
@@ -199,13 +225,21 @@ fun MainScreen(
         val otpBinary = hash.copyOfRange(offset, offset + 4)
         otpBinary[0] = (otpBinary[0].toInt() and 0x7f).toByte() // Force first bit of the binary string to be 0
         val otp = ByteBuffer.wrap(otpBinary).int
-
-        // Log for debugging
-        Log.d("TOTP", "Secret Key: $secret")
-        Log.d("TOTP", "Time Index: $timeIndex")
-        Log.d("TOTP", "Generated OTP: ${String.format("%06d", otp % 1000000)}")
-
         return String.format("%06d", otp % 1000000)
+    }
+
+    fun startCountdown() {
+        countdown = 30
+        scope.launch {
+            while (true) {
+                delay(1000L)
+                countdown--
+                if (countdown <= 0) {
+                    otp = secretKey?.let { generateTOTP(it) }
+                    countdown = 30
+                }
+            }
+        }
     }
 
     LaunchedEffect(barcode) {
@@ -213,17 +247,15 @@ fun MainScreen(
             websiteName = extractWebsiteName(barcode)
             secretKey = extractSecretKey(barcode) // Extract or store the secret key from the barcode
             otp = secretKey?.let { generateTOTP(it) }
-            countdown = 30
-
-            scope.launch {
-                while (true) {
-                    delay(1000L)
-                    countdown--
-                    if (countdown <= 0) {
-                        otp = secretKey?.let { generateTOTP(it) }
-                        countdown = 30
-                    }
-                }
+            otp?.let { saveOTP(it, websiteName!!, secretKey!!) }
+            startCountdown()  // Start countdown after generating OTP
+        } else {
+            val (loadedOtp, loadedWebsite, loadedSecret) = loadOTP()
+            if (loadedOtp != null && loadedWebsite != null && loadedSecret != null) {
+                otp = loadedOtp
+                websiteName = loadedWebsite
+                secretKey = loadedSecret
+                startCountdown() // Start countdown if OTP is loaded from storage
             }
         }
     }
@@ -309,6 +341,7 @@ fun MainScreen(
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(onClick = {
+                                clearOTP() // Clear the stored OTP
                                 otp = null // Delete the OTP
                             }) {
                                 Text("Delete OTP")
@@ -334,7 +367,8 @@ fun OTPScreenPreview() {
     A3ATheme {
         MainScreen(
             onStartBarcodeScanner = {},
-            onRequestCameraPermission = {}
+            onRequestCameraPermission = {},
+            sharedPreferences = LocalContext.current.getSharedPreferences("Able3Studios", Context.MODE_PRIVATE)
         )
     }
 }
