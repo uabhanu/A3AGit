@@ -25,13 +25,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import com.Able3Studios.A3A.ui.theme.A3ATheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.QrCodeScanner
+import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.random.Random
+import java.nio.ByteBuffer
+import java.util.*
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+import org.apache.commons.codec.binary.Base32
 
 class MainActivity : FragmentActivity() {
 
@@ -112,18 +116,14 @@ class MainActivity : FragmentActivity() {
 
     private val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
-            val scannedBarcode = result.data?.getStringExtra("SCANNED_BARCODE")
-            scannedBarcode?.let {
-                val otp = generateOTP()
-
-                setContent {
-                    A3ATheme {
-                        MainScreen(
-                            onStartBarcodeScanner = { startBarcodeScanner() },
-                            onRequestCameraPermission = { requestCameraPermission() },
-                            otp = otp // Pass the generated OTP to MainScreen
-                        )
-                    }
+            val barcode = result.data?.getStringExtra("SCANNED_BARCODE")
+            setContent {
+                A3ATheme {
+                    MainScreen(
+                        onStartBarcodeScanner = { startBarcodeScanner() },
+                        onRequestCameraPermission = { requestCameraPermission() },
+                        barcode = barcode // Pass the scanned barcode to MainScreen
+                    )
                 }
             }
         } else {
@@ -153,28 +153,75 @@ class MainActivity : FragmentActivity() {
 fun MainScreen(
     onStartBarcodeScanner: () -> Unit,
     onRequestCameraPermission: () -> Unit,
-    otp: String? = null // Accept the OTP as a parameter
+    barcode: String? = null // Accept the scanned barcode as a parameter
 ) {
     var selectedItem by remember { mutableStateOf(0) }
     val items = listOf("Home", "Barcode Scanner")
-    var otps by remember { mutableStateOf(listOf<Pair<String, Int>>()) } // List of OTPs with countdowns
+    var otp by remember { mutableStateOf<String?>(null) }
+    var countdown by remember { mutableStateOf(30) }
+    var websiteName by remember { mutableStateOf<String?>(null) }
+    var secretKey by remember { mutableStateOf<String?>(null) } // To store the secret key
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(otp) {
-        if (otp != null) {
-            otps = otps + Pair(otp, 10) // Add new OTP with countdown set to 10 seconds
+    // Function to extract website name from barcode
+    fun extractWebsiteName(barcode: String): String {
+        return when {
+            barcode.contains("github", ignoreCase = true) -> "GitHub"
+            barcode.contains("google", ignoreCase = true) -> "Google"
+            // Add more website detection rules as needed
+            else -> "Unknown Website"
+        }
+    }
 
-            // Start countdown for the new OTP
+    // Function to extract the secret key from the barcode
+    fun extractSecretKey(barcode: String): String? {
+        val keyPattern = Regex("secret=([A-Za-z0-9]+)")
+        val matchResult = keyPattern.find(barcode)
+        return matchResult?.groups?.get(1)?.value
+    }
+
+    fun HMACSHA1(key: ByteArray, data: ByteArray): ByteArray {
+        val mac = Mac.getInstance("HmacSHA1")
+        val secretKeySpec = SecretKeySpec(key, "HmacSHA1")
+        mac.init(secretKeySpec)
+        return mac.doFinal(data)
+    }
+
+    fun generateTOTP(secret: String): String {
+        val base32 = Base32()
+        val secretKeyBytes = base32.decode(secret)
+        val timeIndex = System.currentTimeMillis() / 1000 / 30
+        val buffer = ByteBuffer.allocate(8)
+        buffer.putLong(timeIndex)
+        val hash = HMACSHA1(secretKeyBytes, buffer.array())
+        val offset = hash[hash.size - 1].toInt() and 0xf
+        val otpBinary = hash.copyOfRange(offset, offset + 4)
+        otpBinary[0] = (otpBinary[0].toInt() and 0x7f).toByte() // Force first bit of the binary string to be 0
+        val otp = ByteBuffer.wrap(otpBinary).int
+
+        // Log for debugging
+        Log.d("TOTP", "Secret Key: $secret")
+        Log.d("TOTP", "Time Index: $timeIndex")
+        Log.d("TOTP", "Generated OTP: ${String.format("%06d", otp % 1000000)}")
+
+        return String.format("%06d", otp % 1000000)
+    }
+
+    LaunchedEffect(barcode) {
+        if (barcode != null) {
+            websiteName = extractWebsiteName(barcode)
+            secretKey = extractSecretKey(barcode) // Extract or store the secret key from the barcode
+            otp = secretKey?.let { generateTOTP(it) }
+            countdown = 30
+
             scope.launch {
                 while (true) {
                     delay(1000L)
-                    otps = otps.map { (currentOtp, countdown) ->
-                        if (countdown > 1) {
-                            Pair(currentOtp, countdown - 1) // Decrease countdown
-                        } else {
-                            Pair(generateOTP(), 10) // Reset OTP and countdown when it reaches zero
-                        }
+                    countdown--
+                    if (countdown <= 0) {
+                        otp = secretKey?.let { generateTOTP(it) }
+                        countdown = 30
                     }
                 }
             }
@@ -229,7 +276,7 @@ fun MainScreen(
                 Text(text = "Able 3 Authenticator", fontSize = 24.sp)
                 Spacer(modifier = Modifier.height(32.dp))
 
-                if (otps.isEmpty()) {
+                if (otp == null) {
                     Card(
                         modifier = Modifier.padding(16.dp),
                         elevation = CardDefaults.cardElevation(4.dp)
@@ -241,24 +288,30 @@ fun MainScreen(
                         )
                     }
                 } else {
-                    otps.forEach { (otp, countdown) ->
-                        Card(
-                            modifier = Modifier.padding(16.dp),
-                            elevation = CardDefaults.cardElevation(4.dp)
+                    Card(
+                        modifier = Modifier.padding(16.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(16.dp)
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(16.dp)
-                            ) {
-                                Text(text = "OTP: $otp", fontSize = 24.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(text = "Expires in $countdown seconds", fontSize = 18.sp)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Button(onClick = {
-                                    copyToClipboard(context, otp)
-                                }) {
-                                    Text("Copy Authcode")
-                                }
+                            Text(text = "Website: $websiteName", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = "OTP: $otp", fontSize = 24.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = "Expires in $countdown seconds", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = {
+                                copyToClipboard(context, otp!!)
+                            }) {
+                                Text("Copy Authcode")
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(onClick = {
+                                otp = null // Delete the OTP
+                            }) {
+                                Text("Delete OTP")
                             }
                         }
                     }
@@ -266,10 +319,6 @@ fun MainScreen(
             }
         }
     }
-}
-
-fun generateOTP(): String {
-    return (Random.nextInt(900000) + 100000).toString()
 }
 
 fun copyToClipboard(context: Context, text: String) {
