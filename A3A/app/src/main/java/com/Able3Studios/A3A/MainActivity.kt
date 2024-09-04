@@ -321,9 +321,7 @@ fun MainScreen(
 
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {
-            detectTapGestures(onTap = {
-                showDeleteIcon = false
-            }) // Reset delete icon visibility on tap
+            detectTapGestures(onTap = { showDeleteIcon = false }) // Reset delete icon visibility on tap
         },
         bottomBar = {
             NavigationBar {
@@ -340,9 +338,7 @@ fun MainScreen(
                         onClick = {
                             selectedItem = index
                             when (index) {
-                                0 -> { /* Do nothing for Home */
-                                }
-
+                                0 -> { /* Do nothing for Home */ }
                                 1 -> {
                                     if (ContextCompat.checkSelfPermission(
                                             context,
@@ -374,12 +370,14 @@ fun MainScreen(
                 Text(text = "Able 3 Authenticator", fontSize = 24.sp)
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Move the Card logic out of the otp == null check
+                // Determine background color based on the theme (LightOrange or DarkOrange)
+                val cardBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
+
                 Card(
                     modifier = Modifier.padding(16.dp),
                     elevation = CardDefaults.cardElevation(4.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = DarkOrange // Adaptive orange background based on the theme logic should be here
+                        containerColor = cardBackgroundColor // Adaptive orange background based on the theme
                     )
                 ) {
                     Column(
