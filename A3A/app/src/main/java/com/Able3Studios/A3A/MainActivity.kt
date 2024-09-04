@@ -185,29 +185,24 @@ fun MainScreen(
     var otp by remember { mutableStateOf<String?>(null) }
     var countdown by remember { mutableStateOf(30) }
     var websiteName by remember { mutableStateOf<String?>(null) }
-    var secretKey by remember { mutableStateOf<String?>(null) }
+    var secretKey by remember { mutableStateOf<String?>(null) } // To store the secret key
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    fun saveOTP(otp: String, websiteName: String, secretKey: String, remainingTime: Int) {
+    // Save secretKey and websiteName, NOT OTP
+    fun saveData(websiteName: String, secretKey: String) {
         sharedPreferences.edit()
-            .putString("otp", otp)
             .putString("websiteName", websiteName)
             .putString("secretKey", secretKey)
-            .putInt("remainingTime", remainingTime)
-            .putLong("lastTime", System.currentTimeMillis())
+            .putLong("saved_time", System.currentTimeMillis())
             .apply()
     }
 
-    fun loadOTP(): Triple<String?, String?, String?> {
-        val otp = sharedPreferences.getString("otp", null)
+    // Load secretKey and websiteName
+    fun loadData(): Pair<String?, String?> {
         val websiteName = sharedPreferences.getString("websiteName", null)
         val secretKey = sharedPreferences.getString("secretKey", null)
-        return Triple(otp, websiteName, secretKey)
-    }
-
-    fun clearOTP() {
-        sharedPreferences.edit().clear().apply()
+        return Pair(websiteName, secretKey)
     }
 
     // Function to extract website name from barcode
@@ -215,7 +210,6 @@ fun MainScreen(
         return when {
             barcode.contains("github", ignoreCase = true) -> "GitHub"
             barcode.contains("google", ignoreCase = true) -> "Google"
-            // Add more website detection rules as needed
             else -> "Unknown Website"
         }
     }
@@ -234,6 +228,7 @@ fun MainScreen(
         return mac.doFinal(data)
     }
 
+    // Generate OTP using TOTP algorithm with correct formatting
     fun generateTOTP(secret: String): String {
         val base32 = Base32()
         val secretKeyBytes = base32.decode(secret)
@@ -245,16 +240,10 @@ fun MainScreen(
         val otpBinary = hash.copyOfRange(offset, offset + 4)
         otpBinary[0] = (otpBinary[0].toInt() and 0x7f).toByte() // Force first bit of the binary string to be 0
         val otp = ByteBuffer.wrap(otpBinary).int
-
-        // Format the OTP as XXX XXX by splitting it into two parts
-        val otpFormatted = String.format("%06d", otp % 1000000) // Format as 6-digit number
-        val formattedOtpWithSpace = otpFormatted.substring(0, 3) + " " + otpFormatted.substring(3, 6)
-
-        return formattedOtpWithSpace
+        return String.format("%03d %03d", otp % 1000000 / 1000, otp % 1000) // Format as XXX XXX
     }
 
-    fun startCountdown(initialCountdown: Int) {
-        countdown = initialCountdown
+    fun startCountdown() {
         scope.launch {
             while (true) {
                 delay(1000L)
@@ -267,25 +256,27 @@ fun MainScreen(
         }
     }
 
+    // Handle app startup and restoring state
     LaunchedEffect(barcode) {
         if (barcode != null) {
             websiteName = extractWebsiteName(barcode)
-            secretKey = extractSecretKey(barcode)
-            otp = secretKey?.let { generateTOTP(it) }
-            otp?.let { saveOTP(it, websiteName!!, secretKey!!, countdown) }
-            startCountdown(30)
+            secretKey = extractSecretKey(barcode) // Extract the secret key from the barcode
+            otp = secretKey?.let { generateTOTP(it) } // Generate OTP at start
+            saveData(websiteName!!, secretKey!!)
+            startCountdown()  // Start countdown after generating OTP
         } else {
-            val (loadedOtp, loadedWebsite, loadedSecret) = loadOTP()
-            if (loadedOtp != null && loadedWebsite != null && loadedSecret != null) {
-                otp = loadedOtp
+            // Load saved secret key and website name
+            val (loadedWebsite, loadedSecret) = loadData()
+            if (loadedWebsite != null && loadedSecret != null) {
                 websiteName = loadedWebsite
                 secretKey = loadedSecret
 
-                val lastSavedTime = sharedPreferences.getLong("lastTime", 0L)
-                val timePassed = (System.currentTimeMillis() - lastSavedTime) / 1000 % 30
-                val remainingTime = sharedPreferences.getInt("remainingTime", 30) - timePassed.toInt()
-
-                startCountdown(remainingTime.coerceAtLeast(0))
+                // Restore countdown based on saved time
+                val savedTime = sharedPreferences.getLong("saved_time", 0L)
+                val elapsedTime = (System.currentTimeMillis() - savedTime) / 1000
+                countdown = (30 - (elapsedTime % 30)).toInt() // Calculate remaining time
+                otp = secretKey?.let { generateTOTP(it) } // Generate OTP
+                startCountdown()
             }
         }
     }
@@ -361,8 +352,6 @@ fun MainScreen(
                             Text(text = "Website: $websiteName", fontSize = 20.sp)
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(text = "OTP: $otp", fontSize = 24.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = "Expires in $countdown seconds", fontSize = 18.sp)
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(onClick = {
                                 copyToClipboard(context, otp!!)
@@ -371,13 +360,24 @@ fun MainScreen(
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(onClick = {
-                                clearOTP() // Clear the stored OTP
+                                sharedPreferences.edit().clear().apply()
                                 otp = null // Delete the OTP
                             }) {
                                 Text("Delete OTP")
                             }
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Universal countdown at the bottom
+                if (otp != null) {
+                    Text(
+                        text = "Expires in $countdown seconds",
+                        fontSize = 18.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
                 }
             }
         }
