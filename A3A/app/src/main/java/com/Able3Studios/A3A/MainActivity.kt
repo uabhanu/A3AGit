@@ -10,13 +10,13 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -32,10 +32,13 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +48,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -59,6 +64,9 @@ import org.apache.commons.codec.binary.Base32
 import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+
+val LightOrange = Color(0xFFFFA500) // Bright orange for light theme
+val DarkOrange = Color(0xFFFF8C00) // Darker orange for dark theme
 
 class MainActivity : FragmentActivity() {
 
@@ -77,18 +85,36 @@ class MainActivity : FragmentActivity() {
 
         sharedPreferences = getSharedPreferences("Able3Studios", Context.MODE_PRIVATE)
 
-        // Set the status bar color to orange
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = ContextCompat.getColor(this, android.R.color.holo_orange_light)
-        }
+        // Set the status bar color based on the current theme (light or dark)
+        val isDarkTheme = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val statusBarColor = if (isDarkTheme) DarkOrange else LightOrange
 
-        try {
-            val packageManager = this.packageManager
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error during initialization: ${e.message}")
+        // Set the status bar color
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = statusBarColor.toArgb()
         }
 
         authenticateUser()
+    }
+
+    @Composable
+    fun A3ATheme(content: @Composable () -> Unit) {
+        val colors = if (isSystemInDarkTheme()) {
+            darkColorScheme(
+                primary = DarkOrange,
+                onPrimary = Color.White
+            )
+        } else {
+            lightColorScheme(
+                primary = LightOrange,
+                onPrimary = Color.Black
+            )
+        }
+
+        MaterialTheme(
+            colorScheme = colors,
+            content = content
+        )
     }
 
     private fun authenticateUser() {
@@ -347,13 +373,20 @@ fun MainScreen(
                 if (otp == null) {
                     Card(
                         modifier = Modifier.padding(16.dp),
-                        elevation = CardDefaults.cardElevation(4.dp)
-                    ) {
-                        Text(
-                            text = "No OTPs Yet",
-                            fontSize = 24.sp,
-                            modifier = Modifier.padding(16.dp)
+                        elevation = CardDefaults.cardElevation(4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFA500) // Orange background for the OTP box
                         )
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(text = "Website: $websiteName", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = "OTP: $otp", fontSize = 24.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
                 } else {
                     Card(
