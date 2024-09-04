@@ -65,8 +65,8 @@ import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-val LightOrange = Color(0xFFFFA500) // Bright orange for light theme
-val DarkOrange = Color(0xFFFF8C00) // Darker orange for dark theme
+val LightOrange = Color(0xFFFFC14d) // Bright orange for light theme
+val DarkOrange = Color(0xFF996300) // Darker orange for dark theme
 
 class MainActivity : FragmentActivity() {
 
