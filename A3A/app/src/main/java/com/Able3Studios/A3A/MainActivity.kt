@@ -1,5 +1,6 @@
 package com.Able3Studios.A3A
 
+import android.Manifest
 import android.app.KeyguardManager
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -7,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.Manifest
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -15,12 +15,30 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,11 +50,10 @@ import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.apache.commons.codec.binary.Base32
 import java.nio.ByteBuffer
-import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import org.apache.commons.codec.binary.Base32
 
 class MainActivity : FragmentActivity() {
 
@@ -168,14 +185,17 @@ fun MainScreen(
     var otp by remember { mutableStateOf<String?>(null) }
     var countdown by remember { mutableStateOf(30) }
     var websiteName by remember { mutableStateOf<String?>(null) }
-    var secretKey by remember { mutableStateOf<String?>(null) } // To store the secret key
+    var secretKey by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    fun saveOTP(otp: String, websiteName: String, secretKey: String) {
-        sharedPreferences.edit().putString("otp", otp)
+    fun saveOTP(otp: String, websiteName: String, secretKey: String, remainingTime: Int) {
+        sharedPreferences.edit()
+            .putString("otp", otp)
             .putString("websiteName", websiteName)
             .putString("secretKey", secretKey)
+            .putInt("remainingTime", remainingTime)
+            .putLong("lastTime", System.currentTimeMillis())
             .apply()
     }
 
@@ -225,11 +245,16 @@ fun MainScreen(
         val otpBinary = hash.copyOfRange(offset, offset + 4)
         otpBinary[0] = (otpBinary[0].toInt() and 0x7f).toByte() // Force first bit of the binary string to be 0
         val otp = ByteBuffer.wrap(otpBinary).int
-        return String.format("%06d", otp % 1000000)
+
+        // Format the OTP as XXX XXX by splitting it into two parts
+        val otpFormatted = String.format("%06d", otp % 1000000) // Format as 6-digit number
+        val formattedOtpWithSpace = otpFormatted.substring(0, 3) + " " + otpFormatted.substring(3, 6)
+
+        return formattedOtpWithSpace
     }
 
-    fun startCountdown() {
-        countdown = 30
+    fun startCountdown(initialCountdown: Int) {
+        countdown = initialCountdown
         scope.launch {
             while (true) {
                 delay(1000L)
@@ -245,17 +270,22 @@ fun MainScreen(
     LaunchedEffect(barcode) {
         if (barcode != null) {
             websiteName = extractWebsiteName(barcode)
-            secretKey = extractSecretKey(barcode) // Extract or store the secret key from the barcode
+            secretKey = extractSecretKey(barcode)
             otp = secretKey?.let { generateTOTP(it) }
-            otp?.let { saveOTP(it, websiteName!!, secretKey!!) }
-            startCountdown()  // Start countdown after generating OTP
+            otp?.let { saveOTP(it, websiteName!!, secretKey!!, countdown) }
+            startCountdown(30)
         } else {
             val (loadedOtp, loadedWebsite, loadedSecret) = loadOTP()
             if (loadedOtp != null && loadedWebsite != null && loadedSecret != null) {
                 otp = loadedOtp
                 websiteName = loadedWebsite
                 secretKey = loadedSecret
-                startCountdown() // Start countdown if OTP is loaded from storage
+
+                val lastSavedTime = sharedPreferences.getLong("lastTime", 0L)
+                val timePassed = (System.currentTimeMillis() - lastSavedTime) / 1000 % 30
+                val remainingTime = sharedPreferences.getInt("remainingTime", 30) - timePassed.toInt()
+
+                startCountdown(remainingTime.coerceAtLeast(0))
             }
         }
     }
