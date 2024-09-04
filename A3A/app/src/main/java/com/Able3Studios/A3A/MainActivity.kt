@@ -275,7 +275,8 @@ fun MainScreen(
         val hash = HMACSHA1(secretKeyBytes, buffer.array())
         val offset = hash[hash.size - 1].toInt() and 0xf
         val otpBinary = hash.copyOfRange(offset, offset + 4)
-        otpBinary[0] = (otpBinary[0].toInt() and 0x7f).toByte() // Force first bit of the binary string to be 0
+        otpBinary[0] =
+            (otpBinary[0].toInt() and 0x7f).toByte() // Force first bit of the binary string to be 0
         val otp = ByteBuffer.wrap(otpBinary).int
         return String.format("%03d %03d", otp % 1000000 / 1000, otp % 1000) // Format as XXX XXX
     }
@@ -318,10 +319,11 @@ fun MainScreen(
         }
     }
 
-    // Use Modifier.pointerInput to detect taps outside the OTP box and reset the visibility of the delete icon
     Scaffold(
         modifier = Modifier.pointerInput(Unit) {
-            detectTapGestures(onTap = { showDeleteIcon = false }) // Reset delete icon visibility on tap
+            detectTapGestures(onTap = {
+                showDeleteIcon = false
+            }) // Reset delete icon visibility on tap
         },
         bottomBar = {
             NavigationBar {
@@ -338,7 +340,9 @@ fun MainScreen(
                         onClick = {
                             selectedItem = index
                             when (index) {
-                                0 -> { /* Do nothing for Home */ }
+                                0 -> { /* Do nothing for Home */
+                                }
+
                                 1 -> {
                                     if (ContextCompat.checkSelfPermission(
                                             context,
@@ -370,36 +374,24 @@ fun MainScreen(
                 Text(text = "Able 3 Authenticator", fontSize = 24.sp)
                 Spacer(modifier = Modifier.height(32.dp))
 
-                if (otp == null) {
-                    Card(
-                        modifier = Modifier.padding(16.dp),
-                        elevation = CardDefaults.cardElevation(4.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFFA500) // Orange background for the OTP box
-                        )
+                // Move the Card logic out of the otp == null check
+                Card(
+                    modifier = Modifier.padding(16.dp),
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = DarkOrange // Adaptive orange background based on the theme logic should be here
+                    )
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(text = "Website: $websiteName", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = "OTP: $otp", fontSize = 24.sp)
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-                    }
-                } else {
-                    Card(
-                        modifier = Modifier.padding(16.dp),
-                        elevation = CardDefaults.cardElevation(4.dp)
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(text = "Website: $websiteName", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Website: $websiteName", fontSize = 20.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
 
+                        if (otp == null) {
+                            Text(text = "No OTPs Yet", fontSize = 24.sp)
+                        } else {
                             // Display OTP and handle long-press for copy and delete
                             SelectionContainer {
                                 DisableSelection {
@@ -454,7 +446,7 @@ fun MainScreen(
     }
 }
 
-fun copyToClipboard(context: Context, text: String) {
+    fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val clip = ClipData.newPlainText("OTP", text)
     clipboard.setPrimaryClip(clip)
