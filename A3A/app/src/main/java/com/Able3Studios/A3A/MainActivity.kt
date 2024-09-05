@@ -324,7 +324,8 @@ fun MainScreen(
             detectTapGestures(onTap = { showDeleteIcon = false }) // Reset delete icon visibility on tap
         },
         bottomBar = {
-            NavigationBar {
+            val navBarBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
+            NavigationBar (containerColor = navBarBackgroundColor){
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         icon = {
