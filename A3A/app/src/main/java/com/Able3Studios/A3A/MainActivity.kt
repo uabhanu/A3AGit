@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -35,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -325,21 +327,33 @@ fun MainScreen(
         },
         bottomBar = {
             val navBarBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
-            NavigationBar (containerColor = navBarBackgroundColor){
+            NavigationBar(
+                containerColor = navBarBackgroundColor // Set background color for the NavigationBar
+            ) {
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         icon = {
                             when (index) {
-                                0 -> Icon(Icons.Filled.Home, contentDescription = null)
-                                1 -> Icon(Icons.Filled.QrCodeScanner, contentDescription = null)
+                                0 -> Icon(
+                                    Icons.Filled.Home,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp), // Fixed icon size
+                                    tint = if (selectedItem == index) Color.White else Color.Gray // White if selected, gray if not
+                                )
+                                1 -> Icon(
+                                    Icons.Filled.QrCodeScanner,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp), // Fixed icon size
+                                    tint = if (selectedItem == index) Color.White else Color.Gray // White if selected, gray if not
+                                )
                             }
                         },
-                        label = { Text(item) },
+                        label = { Text(item) }, // The label can stay but we hide it
                         selected = selectedItem == index,
                         onClick = {
                             selectedItem = index
                             when (index) {
-                                0 -> { /* Do nothing for Home */ }
+                                0 -> { /* Home button logic here */ }
                                 1 -> {
                                     if (ContextCompat.checkSelfPermission(
                                             context,
@@ -352,7 +366,13 @@ fun MainScreen(
                                     }
                                 }
                             }
-                        }
+                        },
+                        alwaysShowLabel = false, // Prevents the label from showing and moving the button
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color.White, // White when selected
+                            unselectedIconColor = Color.Gray, // Gray when unselected
+                            indicatorColor = Color.Transparent // Remove the lilac background color completely
+                        )
                     )
                 }
             }
