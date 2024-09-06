@@ -283,6 +283,14 @@ fun MainScreen(
         return String.format("%03d %03d", otp % 1000000 / 1000, otp % 1000) // Format as XXX XXX
     }
 
+    fun deleteOTP() {
+        sharedPreferences.edit().clear().apply()
+        otp = null
+        websiteName = null
+        secretKey = null
+        countdown = 0
+    }
+
     fun startCountdown() {
         scope.launch {
             while (true) {
@@ -297,16 +305,17 @@ fun MainScreen(
         }
     }
 
-    // Only this part of LaunchedEffect is adjusted to ensure accurate countdown
     LaunchedEffect(barcode) {
         val (loadedWebsite, loadedSecret) = loadData()
         val savedOtp = sharedPreferences.getString("saved_otp", null)
+
         if (barcode != null) {
             websiteName = extractWebsiteName(barcode)
             secretKey = extractSecretKey(barcode)
-            otp = savedOtp
+            otp = secretKey?.let { generateTOTP(it) }
+            sharedPreferences.edit().putString("saved_otp", otp).apply()
             saveData(websiteName!!, secretKey!!)
-            startCountdown()
+            startCountdown()  // Start countdown
         } else if (loadedWebsite != null && loadedSecret != null) {
             websiteName = loadedWebsite
             secretKey = loadedSecret
@@ -314,7 +323,7 @@ fun MainScreen(
             val savedTime = sharedPreferences.getLong("saved_time", 0L)
             val elapsedTime = (System.currentTimeMillis() - savedTime) / 1000
             countdown = (30 - (elapsedTime % 30)).toInt()
-            startCountdown()  // Continue countdown
+            startCountdown()
         }
     }
 
@@ -402,8 +411,10 @@ fun MainScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        Text(text = "Website: $websiteName", fontSize = 20.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        if (otp != null && websiteName != null && websiteName!!.isNotBlank()) {
+                            Text(text = "Website: $websiteName", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
 
                         if (otp == null) {
                             Text(text = "No OTPs Yet", fontSize = 24.sp)
@@ -437,7 +448,7 @@ fun MainScreen(
                                     modifier = Modifier.pointerInput(Unit) {
                                         detectTapGestures(onTap = {
                                             sharedPreferences.edit().clear().apply()
-                                            otp = null // Delete OTP
+                                            deleteOTP()
                                             showDeleteIcon = false
                                         })
                                     }
