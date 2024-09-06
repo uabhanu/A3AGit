@@ -290,34 +290,31 @@ fun MainScreen(
                 countdown--
                 if (countdown <= 0) {
                     otp = secretKey?.let { generateTOTP(it) }
+                    sharedPreferences.edit().putString("saved_otp", otp).apply()
                     countdown = 30
                 }
             }
         }
     }
 
-    // Handle app startup and restoring state
+    // Only this part of LaunchedEffect is adjusted to ensure accurate countdown
     LaunchedEffect(barcode) {
+        val (loadedWebsite, loadedSecret) = loadData()
+        val savedOtp = sharedPreferences.getString("saved_otp", null)
         if (barcode != null) {
             websiteName = extractWebsiteName(barcode)
-            secretKey = extractSecretKey(barcode) // Extract the secret key from the barcode
-            otp = secretKey?.let { generateTOTP(it) } // Generate OTP at start
+            secretKey = extractSecretKey(barcode)
+            otp = savedOtp
             saveData(websiteName!!, secretKey!!)
-            startCountdown()  // Start countdown after generating OTP
-        } else {
-            // Load saved secret key and website name
-            val (loadedWebsite, loadedSecret) = loadData()
-            if (loadedWebsite != null && loadedSecret != null) {
-                websiteName = loadedWebsite
-                secretKey = loadedSecret
-
-                // Restore countdown based on saved time
-                val savedTime = sharedPreferences.getLong("saved_time", 0L)
-                val elapsedTime = (System.currentTimeMillis() - savedTime) / 1000
-                countdown = (30 - (elapsedTime % 30)).toInt() // Calculate remaining time
-                otp = secretKey?.let { generateTOTP(it) } // Generate OTP
-                startCountdown()
-            }
+            startCountdown()
+        } else if (loadedWebsite != null && loadedSecret != null) {
+            websiteName = loadedWebsite
+            secretKey = loadedSecret
+            otp = savedOtp
+            val savedTime = sharedPreferences.getLong("saved_time", 0L)
+            val elapsedTime = (System.currentTimeMillis() - savedTime) / 1000
+            countdown = (30 - (elapsedTime % 30)).toInt()
+            startCountdown()  // Continue countdown
         }
     }
 
