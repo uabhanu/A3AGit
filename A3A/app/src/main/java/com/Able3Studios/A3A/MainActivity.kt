@@ -59,10 +59,10 @@ import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.apache.commons.codec.binary.Base32
 import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import org.apache.commons.codec.binary.Base32
 
 val LightOrange = Color(0xFFFFC14d) // Bright orange for light theme
 val DarkOrange = Color(0xFF996300) // Darker orange for dark theme
@@ -383,6 +383,13 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            showDeleteIcon = false // Hide delete icon on tap outside
+                        }
+                    )
+                }
         ) {
             Text(text = "Able 3 Authenticator", fontSize = 24.sp)
             Spacer(modifier = Modifier.height(32.dp))
