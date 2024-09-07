@@ -17,7 +17,6 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,8 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -328,13 +325,10 @@ fun MainScreen(
     }
 
     Scaffold(
-        modifier = Modifier.pointerInput(Unit) {
-            detectTapGestures(onTap = { showDeleteIcon = false }) // Reset delete icon visibility on tap
-        },
         bottomBar = {
             val navBarBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
             NavigationBar(
-                containerColor = navBarBackgroundColor // Set background color for the NavigationBar
+                containerColor = navBarBackgroundColor
             ) {
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
@@ -343,18 +337,18 @@ fun MainScreen(
                                 0 -> Icon(
                                     Icons.Filled.Home,
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp), // Fixed icon size
-                                    tint = if (selectedItem == index) Color.White else Color.Gray // White if selected, gray if not
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (selectedItem == index) Color.White else Color.Gray
                                 )
                                 1 -> Icon(
                                     Icons.Filled.QrCodeScanner,
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp), // Fixed icon size
-                                    tint = if (selectedItem == index) Color.White else Color.Gray // White if selected, gray if not
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (selectedItem == index) Color.White else Color.Gray
                                 )
                             }
                         },
-                        label = { Text(item) }, // The label can stay but we hide it
+                        label = { Text(item) },
                         selected = selectedItem == index,
                         onClick = {
                             selectedItem = index
@@ -373,101 +367,83 @@ fun MainScreen(
                                 }
                             }
                         },
-                        alwaysShowLabel = false, // Prevents the label from showing and moving the button
+                        alwaysShowLabel = false,
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White, // White when selected
-                            unselectedIconColor = Color.Gray, // Gray when unselected
-                            indicatorColor = Color.Transparent // Remove the lilac background color completely
+                            selectedIconColor = Color.White,
+                            unselectedIconColor = Color.Gray,
+                            indicatorColor = Color.Transparent
                         )
                     )
                 }
             }
         }
     ) { innerPadding ->
-        Box(
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentAlignment = Alignment.TopCenter
+                .padding(innerPadding)
         ) {
+            Text(text = "Able 3 Authenticator", fontSize = 24.sp)
+            Spacer(modifier = Modifier.height(32.dp))
+
+            val cardBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 48.dp)
+                modifier = Modifier.padding(16.dp)
             ) {
-                Text(text = "Able 3 Authenticator", fontSize = 24.sp)
-                Spacer(modifier = Modifier.height(32.dp))
+                if (otp != null && websiteName != null && websiteName!!.isNotBlank()) {
+                    Text(text = "Website: $websiteName", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-                // Determine background color based on the theme (LightOrange or DarkOrange)
-                val cardBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
-
-                Card(
-                    modifier = Modifier.padding(16.dp),
-                    elevation = CardDefaults.cardElevation(4.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = cardBackgroundColor // Adaptive orange background based on the theme
-                    )
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        if (otp != null && websiteName != null && websiteName!!.isNotBlank()) {
-                            Text(text = "Website: $websiteName", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-
-                        if (otp == null) {
-                            Text(text = "No OTPs Yet", fontSize = 24.sp)
-                        } else {
-                            // Display OTP and handle long-press for copy and delete
-                            SelectionContainer {
-                                DisableSelection {
-                                    Text(
-                                        text = "OTP: $otp",
-                                        fontSize = 24.sp,
-                                        modifier = Modifier.pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onLongPress = {
-                                                    // Copy OTP to clipboard on long press
-                                                    copyToClipboard(context, otp!!)
-                                                    showDeleteIcon = true
-                                                }
-                                            )
+                if (otp == null) {
+                    Text(text = "No OTPs Yet", fontSize = 24.sp)
+                } else {
+                    SelectionContainer {
+                        DisableSelection {
+                            Text(
+                                text = "OTP: $otp",
+                                fontSize = 24.sp,
+                                modifier = Modifier.pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onLongPress = {
+                                            copyToClipboard(context, otp!!)
+                                            showDeleteIcon = true
                                         }
                                     )
                                 }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Show delete icon after long-press
-                            if (showDeleteIcon) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete OTP",
-                                    modifier = Modifier.pointerInput(Unit) {
-                                        detectTapGestures(onTap = {
-                                            sharedPreferences.edit().clear().apply()
-                                            deleteOTP()
-                                            showDeleteIcon = false
-                                        })
-                                    }
-                                )
-                            }
+                            )
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Universal countdown at the bottom
-                if (otp != null) {
-                    Text(
-                        text = "Expires in $countdown seconds",
-                        fontSize = 18.sp,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
+                    if (showDeleteIcon) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete OTP",
+                            modifier = Modifier.pointerInput(Unit) {
+                                detectTapGestures(onTap = {
+                                    sharedPreferences.edit().clear().apply()
+                                    deleteOTP()
+                                    showDeleteIcon = false
+                                })
+                            }
+                        )
+                    }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            if (otp != null) {
+                Text(
+                    text = "Expires in $countdown seconds",
+                    fontSize = 18.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
             }
         }
     }
