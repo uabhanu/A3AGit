@@ -61,10 +61,10 @@ import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.apache.commons.codec.binary.Base32
 import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import org.apache.commons.codec.binary.Base32
 
 val LightOrange = Color(0xFFFFC14d) // Bright orange for light theme
 val DarkOrange = Color(0xFF996300) // Darker orange for dark theme
@@ -388,7 +388,7 @@ fun MainScreen(
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
-                            showDeleteIcon = false // Hide delete icon on tap outside
+                            showDeleteIcon = false
                         }
                     )
                 }
@@ -448,7 +448,9 @@ fun MainScreen(
                                     deleteOTP()
                                     showDeleteIcon = false
                                 })
-                            }
+                            },
+
+                            tint = cardBackgroundColor
                         )
                     }
                 }
