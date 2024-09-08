@@ -63,10 +63,10 @@ import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.apache.commons.codec.binary.Base32
 import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import org.apache.commons.codec.binary.Base32
 
 val LightOrange = Color(0xFFFFC14d) // Bright orange for light theme
 val DarkOrange = Color(0xFF996300) // Darker orange for dark theme
@@ -246,10 +246,21 @@ fun MainScreen(
 
     fun extractWebsiteName(barcode: String): String {
         return if (barcode.startsWith("otpauth://")) {
-            val regex = Regex("""otpauth://[a-z]+/([^?]+)""") // Match `otpauth://totp/{website}`
+            // Extract the website name and identifier from the `otpauth://` URL format
+            val regex = Regex("""otpauth://[a-z]+/([^?]+)""") // Match `otpauth://totp/{website:identifier}`
             val matchResult = regex.find(barcode)
 
-            matchResult?.groupValues?.get(1)?.capitalize() ?: "Unknown Website" // Extract website name
+            // Split the result at ":" to get the website name and the user identifier
+            val parts = matchResult?.groupValues?.get(1)?.split(":")
+            val websiteName = parts?.firstOrNull()?.capitalize() ?: "Unknown Website" // Extract website name
+            val userIdentifier = parts?.getOrNull(1) ?: "" // Extract user identifier if it exists
+
+            // Format as "Website : WebsiteName @UserIdentifier"
+            if (userIdentifier.isNotEmpty()) {
+                "Website : $websiteName @$userIdentifier"
+            } else {
+                "Website : $websiteName" // If no user identifier, just return website name
+            }
         } else {
             // Handle standard URLs or domain-based barcodes
             val domainRegex = Regex("""(?:https?://)?(?:www\.)?([a-zA-Z0-9.-]+)""")
@@ -257,7 +268,10 @@ fun MainScreen(
 
             if (matchResult != null) {
                 val domain = matchResult.groupValues[1]
-                domain.split(".").firstOrNull()?.capitalize() ?: "Unknown Website"
+                val websiteName = domain.split(".").firstOrNull()?.capitalize() ?: "Unknown Website"
+
+                // Format as "Website : WebsiteName"
+                "Website : $websiteName"
             } else {
                 "Unknown Website"
             }
@@ -417,7 +431,7 @@ fun MainScreen(
                 if (otp != null && websiteName != null && websiteName!!.isNotBlank()) {
                     // Align Website label to the left
                     Text(
-                        text = "Website: $websiteName",
+                        text = "$websiteName",
                         fontSize = 20.sp,
                         modifier = Modifier
                             .align(Alignment.Start) // Move to the left
