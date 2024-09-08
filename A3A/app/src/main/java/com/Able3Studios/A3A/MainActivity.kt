@@ -238,19 +238,29 @@ fun MainScreen(
             .apply()
     }
 
-    // Load secretKey and websiteName
     fun loadData(): Pair<String?, String?> {
         val websiteName = sharedPreferences.getString("websiteName", null)
         val secretKey = sharedPreferences.getString("secretKey", null)
         return Pair(websiteName, secretKey)
     }
 
-    // Function to extract website name from barcode
     fun extractWebsiteName(barcode: String): String {
-        return when {
-            barcode.contains("github", ignoreCase = true) -> "GitHub"
-            barcode.contains("google", ignoreCase = true) -> "Google"
-            else -> "Unknown Website"
+        return if (barcode.startsWith("otpauth://")) {
+            val regex = Regex("""otpauth://[a-z]+/([^?]+)""") // Match `otpauth://totp/{website}`
+            val matchResult = regex.find(barcode)
+
+            matchResult?.groupValues?.get(1)?.capitalize() ?: "Unknown Website" // Extract website name
+        } else {
+            // Handle standard URLs or domain-based barcodes
+            val domainRegex = Regex("""(?:https?://)?(?:www\.)?([a-zA-Z0-9.-]+)""")
+            val matchResult = domainRegex.find(barcode)
+
+            if (matchResult != null) {
+                val domain = matchResult.groupValues[1]
+                domain.split(".").firstOrNull()?.capitalize() ?: "Unknown Website"
+            } else {
+                "Unknown Website"
+            }
         }
     }
 
