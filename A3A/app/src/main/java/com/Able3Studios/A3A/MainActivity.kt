@@ -18,6 +18,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -61,10 +63,10 @@ import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.apache.commons.codec.binary.Base32
 import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import org.apache.commons.codec.binary.Base32
 
 val LightOrange = Color(0xFFFFC14d) // Bright orange for light theme
 val DarkOrange = Color(0xFF996300) // Darker orange for dark theme
@@ -403,67 +405,80 @@ fun MainScreen(
                 modifier = Modifier.padding(16.dp)
             ) {
                 if (otp != null && websiteName != null && websiteName!!.isNotBlank()) {
-                    Text(text = "Website: $websiteName", fontSize = 20.sp)
+                    // Align Website label to the left
+                    Text(
+                        text = "Website: $websiteName",
+                        fontSize = 20.sp,
+                        modifier = Modifier
+                            .align(Alignment.Start) // Move to the left
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 if (otp == null) {
                     Text(text = "No OTPs Yet", fontSize = 24.sp)
                 } else {
-                    SelectionContainer {
-                        DisableSelection {
-                            Text(
-                                text = "OTP: $otp",
-                                fontSize = 24.sp,
-                                modifier = Modifier.pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onLongPress = {
-                                            copyToClipboard(context, otp!!)
-                                            showDeleteIcon = true
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        SelectionContainer {
+                            DisableSelection {
+                                Text(
+                                    text = "OTP: $otp",
+                                    fontSize = 24.sp,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onLongPress = {
+                                                    copyToClipboard(context, otp!!)
+                                                    showDeleteIcon = true
+                                                }
+                                            )
                                         }
-                                    )
-                                }
+                                        .wrapContentWidth()
+                                )
+                            }
+                        }
+
+                        if (showDeleteIcon) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete OTP",
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .padding(start = 70.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(onTap = {
+                                            sharedPreferences.edit().clear().apply()
+                                            deleteOTP()
+                                            showDeleteIcon = false
+                                        })
+                                    },
+                                tint = cardBackgroundColor
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    androidx.compose.foundation.layout.Box(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(2.dp)
                             .background(cardBackgroundColor)
                     )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (showDeleteIcon) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete OTP",
-                            modifier = Modifier.pointerInput(Unit) {
-                                detectTapGestures(onTap = {
-                                    sharedPreferences.edit().clear().apply()
-                                    deleteOTP()
-                                    showDeleteIcon = false
-                                })
-                            },
-
-                            tint = cardBackgroundColor
-                        )
-                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
-            if (otp != null) {
-                Text(
-                    text = "Expires in $countdown seconds",
-                    fontSize = 18.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
+                if (otp != null) {
+                    Text(
+                        text = "Expires in $countdown seconds",
+                        fontSize = 18.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
             }
         }
     }
