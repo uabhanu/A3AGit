@@ -30,6 +30,26 @@ android {
             )
         }
     }
+
+    // Use androidComponents instead for modern AGP
+    afterEvaluate {
+        tasks.named("packageRelease") {
+            doLast {
+                val releaseOutputDir = file("$buildDir/outputs/apk/release")
+                val apkFile = releaseOutputDir.listFiles()?.firstOrNull { it.name.endsWith(".apk") }
+                apkFile?.renameTo(File(releaseOutputDir, "A3A.apk"))
+            }
+        }
+
+        tasks.named("packageDebug") {
+            doLast {
+                val debugOutputDir = file("$buildDir/outputs/apk/debug")
+                val apkFile = debugOutputDir.listFiles()?.firstOrNull { it.name.endsWith(".apk") }
+                apkFile?.renameTo(File(debugOutputDir, "A3A.apk"))
+            }
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -59,7 +79,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.1.0")
     implementation("androidx.camera:camera-view:1.0.0-alpha30")
     implementation("com.google.mlkit:barcode-scanning:17.0.2")
-    implementation ("com.google.code.gson:gson:2.8.8")
+    implementation("com.google.code.gson:gson:2.8.8")
     implementation("commons-codec:commons-codec:1.15")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
