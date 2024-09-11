@@ -61,12 +61,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.apache.commons.codec.binary.Base32
 import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.apache.commons.codec.binary.Base32
 
 val LightOrange = Color(0xFFFFC14d)
 val DarkOrange = Color(0xFF996300)
