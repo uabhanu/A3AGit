@@ -15,6 +15,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -68,8 +70,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.apache.commons.codec.binary.Base32
 
-val LightOrange = Color(0xFFFFC14d)
+val BrightBlue = Color(0xFF007FFF)
+val BrightGreen = Color(0xFF00FF00)
 val DarkOrange = Color(0xFF996300)
+val LightOrange = Color(0xFFFFC14d)
 
 class MainActivity : FragmentActivity()
 {
@@ -110,12 +114,11 @@ class MainActivity : FragmentActivity()
     {
         val colors = if(isSystemInDarkTheme())
         {
-            darkColorScheme(primary = DarkOrange , onPrimary = Color.White)
+            darkColorScheme(primary = DarkOrange , onPrimary = Color.White , secondary = BrightGreen , onSecondary = Color.White)
         }
         else
         {
-            lightColorScheme(primary = LightOrange , onPrimary = Color.Black
-            )
+            lightColorScheme(primary = LightOrange , onPrimary = Color.Black , secondary = BrightBlue , onSecondary = Color.Black)
         }
 
         MaterialTheme(colorScheme = colors , content = content)
@@ -200,7 +203,7 @@ class MainActivity : FragmentActivity()
 
     private val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult())
     {
-        result ->
+            result ->
 
         if(result.resultCode == RESULT_OK)
         {
@@ -365,54 +368,54 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
     {
         val navBarBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
 
-            NavigationBar(containerColor = navBarBackgroundColor)
-            {
-                items.forEachIndexed { index , item ->
-                    NavigationBarItem(
-                        icon = {
-                            when (index) {
-                                0 -> Icon(
-                                    Icons.Filled.Home,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = if (selectedItem == index) Color.White else Color.Gray
-                                )
-                                1 -> Icon(
-                                    Icons.Filled.QrCodeScanner,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = if (selectedItem == index) Color.White else Color.Gray
-                                )
-                            }
-                        },
-                        label = { Text(item) },
-                        selected = selectedItem == index,
-                        onClick = {
-                            selectedItem = index
+        NavigationBar(containerColor = navBarBackgroundColor)
+        {
+            items.forEachIndexed { index , item ->
+                NavigationBarItem(
+                    icon = {
+                        when (index) {
+                            0 -> Icon(
+                                Icons.Filled.Home,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = if (selectedItem == index) Color.White else Color.Gray
+                            )
+                            1 -> Icon(
+                                Icons.Filled.QrCodeScanner,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = if (selectedItem == index) Color.White else Color.Gray
+                            )
+                        }
+                    },
+                    label = { Text(item) },
+                    selected = selectedItem == index,
+                    onClick = {
+                        selectedItem = index
 
-                            when(index)
-                            {
-                                0 -> { /* Home button logic here */ }
-                                1 -> {
+                        when(index)
+                        {
+                            0 -> { /* Home button logic here */ }
+                            1 -> {
 
-                                    if(ContextCompat.checkSelfPermission(context , Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
-                                    {
-                                        onStartBarcodeScanner()
-                                    }
-                                    else
-                                    {
-                                        onRequestCameraPermission()
-                                    }
+                                if(ContextCompat.checkSelfPermission(context , Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+                                {
+                                    onStartBarcodeScanner()
+                                }
+                                else
+                                {
+                                    onRequestCameraPermission()
                                 }
                             }
-                        },
+                        }
+                    },
 
-                        alwaysShowLabel = false,
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White , unselectedIconColor = Color.Gray , indicatorColor = Color.Transparent)
-                    )
-                }
+                    alwaysShowLabel = false,
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White , unselectedIconColor = Color.Gray , indicatorColor = Color.Transparent)
+                )
             }
         }
+    }
     ) { innerPadding ->
         Column(horizontalAlignment = Alignment.CenterHorizontally , modifier = Modifier.fillMaxSize().padding(innerPadding).pointerInput(Unit) { detectTapGestures(onTap = { showDeleteIcon = false }) })
         {
@@ -441,25 +444,33 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
                         {
                             detectTapGestures(onLongPress =
                             {
-                                    copyToClipboard(context , otp!!)
-                                    showDeleteIcon = true
+                                copyToClipboard(context , otp!!)
+                                showDeleteIcon = true
                             })
                         }
                             .wrapContentWidth()) }
                         }
 
-                        if(showDeleteIcon)
+                        Box(modifier = Modifier.align(Alignment.CenterEnd))
                         {
-                            Icon(imageVector = Icons.Default.Delete , contentDescription = "Delete OTP" , modifier = Modifier.align(Alignment.CenterEnd).padding(start = 70.dp).pointerInput(Unit)
+                            if(showDeleteIcon)
                             {
-                                detectTapGestures(onTap =
-                                {
-                                    sharedPreferences.edit().clear().apply()
-                                    deleteOTP()
-                                    showDeleteIcon = false
-                                })
-                            },
-                                tint = cardBackgroundColor)
+                                Icon(imageVector = Icons.Default.Delete , contentDescription = "Delete OTP" ,
+                                    modifier = Modifier.size(24.dp).align(Alignment.CenterEnd).pointerInput(Unit)
+                                    {
+                                        detectTapGestures(onTap =
+                                        {
+                                            sharedPreferences.edit().clear().apply()
+                                            deleteOTP()
+                                            showDeleteIcon = false
+                                        })
+                                    },
+
+                                    tint = cardBackgroundColor
+                                )
+                            }
+
+                            OTPCountdownCircle(countdown = countdown , modifier = Modifier.size(24.dp).align(Alignment.CenterEnd).offset(x = (-40).dp))
                         }
                     }
 
@@ -471,7 +482,9 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
 
                 if(otp != null)
                 {
-                    Text(text = "Expires in $countdown seconds" , fontSize = 18.sp , modifier = Modifier.align(Alignment.CenterHorizontally))
+                    OTPCountdownCircle(countdown)
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -484,6 +497,22 @@ fun copyToClipboard(context: Context , text: String)
     val clip = ClipData.newPlainText("OTP" , text)
     clipboard.setPrimaryClip(clip)
     Toast.makeText(context , "OTP copied to clipboard" , Toast.LENGTH_SHORT).show()
+}
+
+@Composable
+fun OTPCountdownCircle(countdown: Int , modifier: Modifier = Modifier , backgroundColor: Color = Color.LightGray)
+{
+    val isDarkTheme = isSystemInDarkTheme()
+    val foregroundColor = if (isDarkTheme) BrightGreen else BrightBlue
+
+    val totalDuration = 30
+    val sweepAngle by remember(countdown) { mutableStateOf((countdown / totalDuration.toFloat()) * 360f) }
+
+    Canvas(modifier = modifier)
+    {
+        drawArc(color = backgroundColor , startAngle = 0f , sweepAngle = 360f , useCenter = true)
+        drawArc(color = foregroundColor , startAngle = -90f , sweepAngle = -sweepAngle , useCenter = true)
+    }
 }
 
 @Preview(showBackground = true)
