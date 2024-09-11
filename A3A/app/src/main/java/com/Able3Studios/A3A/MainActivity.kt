@@ -255,11 +255,11 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
 
             if(userIdentifier.isNotEmpty())
             {
-                "Website : $websiteName @$userIdentifier"
+                "$websiteName : $userIdentifier"
             }
             else
             {
-                "Website : $websiteName"
+                "$websiteName"
             }
         }
         else
@@ -271,7 +271,7 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
             {
                 val domain = matchResult.groupValues[1]
                 val websiteName = domain.split(".").firstOrNull()?.capitalize() ?: "Unknown Website"
-                "Website : $websiteName"
+                "$websiteName"
             }
             else
             {
