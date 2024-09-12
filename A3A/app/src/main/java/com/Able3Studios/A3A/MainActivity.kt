@@ -10,6 +10,7 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,15 +36,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,6 +76,34 @@ val BrightGreen = Color(0xFF00FF00)
 val DarkOrange = Color(0xFF996300)
 val LightOrange = Color(0xFFFFC14d)
 
+fun isValidSecretKey(secretKey: String?): Boolean
+{
+    return try
+    {
+        val base32 = Base32()
+        base32.decode(secretKey) != null
+    }
+    catch(e: Exception)
+    {
+        false
+    }
+}
+
+fun loadData(sharedPreferences: SharedPreferences): List<Triple<String , String , Long>>
+{
+    val entries = sharedPreferences.getStringSet("otp_entries" , emptySet()) ?: emptySet()
+    return entries.map {
+        val parts = it.split("|")
+        Triple(parts[0] , parts[1] , parts[2].toLong())
+    }
+}
+
+fun saveData(otpEntries: List<Triple<String , String , Long>> , sharedPreferences: SharedPreferences)
+{
+    val entrySet = otpEntries.map { "${it.first}|${it.second}|${System.currentTimeMillis()}" }.toSet()
+    sharedPreferences.edit().putStringSet("otp_entries" , entrySet).apply()
+}
+
 class MainActivity : FragmentActivity()
 {
 
@@ -99,7 +128,7 @@ class MainActivity : FragmentActivity()
         sharedPreferences = getSharedPreferences("Able3Studios" , Context.MODE_PRIVATE)
 
         val isDarkTheme = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val statusBarColor = if (isDarkTheme) DarkOrange else LightOrange
+        val statusBarColor = if(isDarkTheme) DarkOrange else LightOrange
 
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
         {
@@ -128,7 +157,7 @@ class MainActivity : FragmentActivity()
     {
         val biometricManager = BiometricManager.from(this)
 
-        when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL))
+        when(biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL))
         {
             BiometricManager.BIOMETRIC_SUCCESS -> showBiometricPrompt()
             else -> showDeviceCredentialPrompt()
@@ -222,28 +251,37 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
 {
     var selectedItem by remember { mutableStateOf(0) }
     val items = listOf("Home" , "Barcode Scanner")
-    var otp by remember { mutableStateOf<String?>(null) }
-    var countdown by remember { mutableStateOf(30) }
-    var websiteName by remember { mutableStateOf<String?>(null) }
-    var secretKey by remember { mutableStateOf<String?>(null) } // To store the secret key
-    var showDeleteIcon by remember { mutableStateOf(false) } // To control the visibility of delete icon
+    var otpEntries by remember { mutableStateOf(loadData(sharedPreferences)) }
+    var countdowns by remember { mutableStateOf(mutableMapOf<String, Int>()) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var showDeleteIcon by remember { mutableStateOf(false) }
 
-    fun deleteOTP()
+    fun deleteOTP(websiteName: String)
     {
-        sharedPreferences.edit().clear().apply()
-        otp = null
-        websiteName = null
-        secretKey = null
-        countdown = 0
+        otpEntries = otpEntries.filterNot { it.first == websiteName }.toMutableList()
+        saveData(otpEntries , sharedPreferences)
+        countdowns.remove(websiteName)
+        showDeleteIcon = false
     }
 
     fun extractSecretKey(barcode: String): String?
     {
         val keyPattern = Regex("secret=([A-Za-z0-9]+)")
         val matchResult = keyPattern.find(barcode)
-        return matchResult?.groups?.get(1)?.value
+        val extractedKey = matchResult?.groups?.get(1)?.value
+
+        Log.d("A3A" , "Extracted Secret Key: $extractedKey")
+
+        if(extractedKey != null && isValidSecretKey(extractedKey))
+        {
+            return extractedKey
+        }
+        else
+        {
+            Log.e("A3A" , "Invalid Secret Key Extracted: $extractedKey")
+            return null
+        }
     }
 
     fun extractWebsiteName(barcode: String): String
@@ -293,198 +331,203 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
 
     fun generateTOTP(secret: String): String
     {
-        val base32 = Base32()
-        val secretKeyBytes = base32.decode(secret)
-        val timeIndex = System.currentTimeMillis() / 1000 / 30
-        val buffer = ByteBuffer.allocate(8)
-        buffer.putLong(timeIndex)
-        val hash = generateHMACSHA1(secretKeyBytes, buffer.array())
-        val offset = hash[hash.size - 1].toInt() and 0xf
-        val otpBinary = hash.copyOfRange(offset, offset + 4)
-        otpBinary[0] = (otpBinary[0].toInt() and 0x7f).toByte()
-        val otp = ByteBuffer.wrap(otpBinary).int
-        return String.format("%03d %03d" , otp % 1000000 / 1000 , otp % 1000)
-    }
-
-    fun loadData(): Pair<String? , String?>
-    {
-        val websiteName = sharedPreferences.getString("websiteName" , null)
-        val secretKey = sharedPreferences.getString("secretKey" , null)
-        return Pair(websiteName , secretKey)
-    }
-
-    fun saveData(websiteName: String , secretKey: String)
-    {
-        sharedPreferences.edit().putString("websiteName" , websiteName).putString("secretKey" , secretKey).putLong("saved_time" , System.currentTimeMillis()).apply()
+        return try
+        {
+            val base32 = Base32()
+            val secretKeyBytes = base32.decode(secret)
+            val timeIndex = System.currentTimeMillis() / 1000 / 30
+            val buffer = ByteBuffer.allocate(8)
+            buffer.putLong(timeIndex)
+            val hash = generateHMACSHA1(secretKeyBytes , buffer.array())
+            val offset = hash[hash.size - 1].toInt() and 0xf
+            val otpBinary = hash.copyOfRange(offset , offset + 4)
+            otpBinary[0] = (otpBinary[0].toInt() and 0x7f).toByte()
+            val otp = ByteBuffer.wrap(otpBinary).int
+            String.format("%03d %03d" , otp % 1000000 / 1000 , otp % 1000)
+        }
+        catch(e: Exception)
+        {
+            println("Error generating TOTP for secret key: $secret")
+            e.printStackTrace()
+            "INVALID"
+        }
     }
 
     fun startCountdown()
     {
-        scope.launch{
+        scope.launch {
 
             while(true)
             {
                 delay(1000L)
-                countdown--
+                val updatedCountdowns = countdowns.toMutableMap()
 
-                if(countdown <= 0)
+                for((websiteName , countdown) in updatedCountdowns)
                 {
-                    otp = secretKey?.let { generateTOTP(it) }
-                    sharedPreferences.edit().putString("saved_otp" , otp).apply()
-                    countdown = 30
+                    if(countdown <= 0)
+                    {
+                        val otpEntry = otpEntries.find { it.first == websiteName }
+
+                        if(otpEntry != null)
+                        {
+                            val newOtp = generateTOTP(otpEntry.second)
+                            otpEntries = otpEntries.map {
+                                if(it.first == websiteName) Triple(it.first , newOtp , System.currentTimeMillis())
+                                else it
+                            }.toMutableList()
+                            saveData(otpEntries , sharedPreferences)
+                        }
+
+                        updatedCountdowns[websiteName] = 30
+                    }
+                    else
+                    {
+                        updatedCountdowns[websiteName] = countdown - 1
+                    }
                 }
+
+                countdowns = updatedCountdowns
             }
         }
     }
 
+
     LaunchedEffect(barcode)
     {
-        val (loadedWebsite, loadedSecret) = loadData()
-        val savedOtp = sharedPreferences.getString("saved_otp" , null)
-
         if(barcode != null)
         {
-            websiteName = extractWebsiteName(barcode)
-            secretKey = extractSecretKey(barcode)
-            otp = secretKey?.let { generateTOTP(it) }
-            sharedPreferences.edit().putString("saved_otp" , otp).apply()
-            saveData(websiteName!! , secretKey!!)
-            startCountdown()
+            val websiteName = extractWebsiteName(barcode)
+            val secretKey = extractSecretKey(barcode)
+
+            if(secretKey != null)
+            {
+                val generatedOtp = generateTOTP(secretKey)
+
+                otpEntries = otpEntries.toMutableList().apply {
+                    removeIf { it.first == websiteName }
+                    add(Triple(websiteName , generatedOtp , System.currentTimeMillis()))
+                }
+
+                saveData(otpEntries , sharedPreferences)
+                countdowns[websiteName] = 30
+                startCountdown()
+            }
+            else
+            {
+                Toast.makeText(context , "Invalid barcode scanned" , Toast.LENGTH_SHORT).show()
+            }
         }
 
-        else if(loadedWebsite != null && loadedSecret != null)
+        else if(otpEntries.isNotEmpty())
         {
-            websiteName = loadedWebsite
-            secretKey = loadedSecret
-            otp = savedOtp
-            val savedTime = sharedPreferences.getLong("saved_time" , 0L)
-            val elapsedTime = (System.currentTimeMillis() - savedTime) / 1000
-            countdown = (30 - (elapsedTime % 30)).toInt()
+            otpEntries.forEach { entry ->
+                val elapsedTime = (System.currentTimeMillis() - entry.third) / 1000
+                val remainingTime = 30 - (elapsedTime % 30).toInt()
+                countdowns[entry.first] = remainingTime.coerceAtLeast(0)
+            }
+
             startCountdown()
         }
     }
 
     Scaffold(bottomBar =
     {
-        val navBarBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
+        val navBarBackgroundColor = if(isSystemInDarkTheme()) DarkOrange else LightOrange
 
         NavigationBar(containerColor = navBarBackgroundColor)
         {
             items.forEachIndexed { index , item ->
                 NavigationBarItem(
                     icon = {
-                        when (index) {
-                            0 -> Icon(
-                                Icons.Filled.Home,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = if (selectedItem == index) Color.White else Color.Gray
-                            )
-                            1 -> Icon(
-                                Icons.Filled.QrCodeScanner,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = if (selectedItem == index) Color.White else Color.Gray
-                            )
+                        when(index)
+                        {
+                            0 -> Icon(Icons.Filled.Home , contentDescription = null , modifier = Modifier.size(24.dp) , tint = if(selectedItem == index) Color.White else Color.Gray)
+                            1 -> Icon(Icons.Filled.QrCodeScanner , contentDescription = null , modifier = Modifier.size(24.dp) , tint = if(selectedItem == index) Color.White else Color.Gray)
                         }
                     },
                     label = { Text(item) },
                     selected = selectedItem == index,
-                    onClick = {
+                    onClick =
+                    {
                         selectedItem = index
 
-                        when(index)
+                        if(index == 1)
                         {
-                            0 -> { /* Home button logic here */ }
-                            1 -> {
-
-                                if(ContextCompat.checkSelfPermission(context , Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
-                                {
-                                    onStartBarcodeScanner()
-                                }
-                                else
-                                {
-                                    onRequestCameraPermission()
-                                }
+                            if(ContextCompat.checkSelfPermission(context , Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+                            {
+                                onStartBarcodeScanner()
+                            }
+                            else
+                            {
+                                onRequestCameraPermission()
                             }
                         }
                     },
-
                     alwaysShowLabel = false,
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White , unselectedIconColor = Color.Gray , indicatorColor = Color.Transparent)
                 )
             }
         }
-    }
-    ) { innerPadding ->
+    })
+    { innerPadding ->
+
         Column(horizontalAlignment = Alignment.CenterHorizontally , modifier = Modifier.fillMaxSize().padding(innerPadding).pointerInput(Unit) { detectTapGestures(onTap = { showDeleteIcon = false }) })
         {
             Text(text = "Able 3 Authenticator", fontSize = 24.sp)
             Spacer(modifier = Modifier.height(32.dp))
 
-            val cardBackgroundColor = if (isSystemInDarkTheme()) DarkOrange else LightOrange
+            val cardBackgroundColor = if(isSystemInDarkTheme()) DarkOrange else LightOrange
 
             Column(horizontalAlignment = Alignment.CenterHorizontally , modifier = Modifier.padding(16.dp))
             {
-                if(otp != null && websiteName != null && websiteName!!.isNotBlank())
-                {
-                    Text(text = "$websiteName" , fontSize = 20.sp , modifier = Modifier.align(Alignment.Start))
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                if(otp == null)
+                if(otpEntries.isEmpty())
                 {
                     Text(text = "No OTPs Yet" , fontSize = 24.sp)
                 }
                 else
                 {
-                    Box(modifier = Modifier.fillMaxWidth())
-                    {
-                        SelectionContainer{ DisableSelection { Text(text = "$otp" , fontSize = 24.sp , modifier = Modifier.align(Alignment.CenterStart).pointerInput(Unit)
-                        {
-                            detectTapGestures(onLongPress =
-                            {
-                                copyToClipboard(context , otp!!)
-                                showDeleteIcon = true
-                            })
-                        }
-                            .wrapContentWidth()) }
-                        }
+                    otpEntries.forEach { (websiteName , otp , _) ->
 
-                        Box(modifier = Modifier.align(Alignment.CenterEnd))
+                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 0.dp))
                         {
-                            if(showDeleteIcon)
+                            Text(text = websiteName , fontSize = 20.sp , modifier = Modifier.align(Alignment.Start))
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Box(modifier = Modifier.fillMaxWidth())
                             {
-                                Icon(imageVector = Icons.Default.Delete , contentDescription = "Delete OTP" ,
-                                    modifier = Modifier.size(24.dp).align(Alignment.CenterEnd).pointerInput(Unit)
+                                SelectionContainer{
+                                    DisableSelection {
+                                        Text(text = "$otp" , fontSize = 24.sp , modifier = Modifier.align(Alignment.CenterStart).pointerInput(Unit)
+                                        {
+                                            detectTapGestures(onLongPress =
+                                            {
+                                                copyToClipboard(context , otp)
+                                                showDeleteIcon = true
+                                            })
+
+                                        }.wrapContentWidth(Alignment.Start))
+                                    }
+                                }
+
+                                if(showDeleteIcon)
+                                {
+                                    Icon(imageVector = Icons.Default.Delete , contentDescription = "Delete OTP" , modifier = Modifier.size(24.dp).align(Alignment.CenterEnd).pointerInput(Unit)
                                     {
                                         detectTapGestures(onTap =
                                         {
-                                            sharedPreferences.edit().clear().apply()
-                                            deleteOTP()
-                                            showDeleteIcon = false
+                                            deleteOTP(websiteName)
                                         })
-                                    },
 
-                                    tint = cardBackgroundColor
-                                )
+                                    }, tint = cardBackgroundColor)
+                                }
+
+                                OTPCountdownCircle(countdown = countdowns[websiteName] ?: 30 , modifier = Modifier.size(24.dp).align(Alignment.CenterEnd).offset(x = (-40).dp))
                             }
 
-                            OTPCountdownCircle(countdown = countdown , modifier = Modifier.size(24.dp).align(Alignment.CenterEnd).offset(x = (-40).dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBackgroundColor))
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(2.dp).background(cardBackgroundColor))
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                if(otp != null)
-                {
-                    OTPCountdownCircle(countdown)
-
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -503,7 +546,7 @@ fun copyToClipboard(context: Context , text: String)
 fun OTPCountdownCircle(countdown: Int , modifier: Modifier = Modifier , backgroundColor: Color = Color.LightGray)
 {
     val isDarkTheme = isSystemInDarkTheme()
-    val foregroundColor = if (isDarkTheme) BrightGreen else BrightBlue
+    val foregroundColor = if(isDarkTheme) BrightGreen else BrightBlue
 
     val totalDuration = 30
     val sweepAngle by remember(countdown) { mutableStateOf((countdown / totalDuration.toFloat()) * 360f) }
