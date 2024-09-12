@@ -440,7 +440,7 @@ fun MainScreen(onStartBarcodeScanner: () -> Unit , onRequestCameraPermission: ()
                 {
                     Box(modifier = Modifier.fillMaxWidth())
                     {
-                        SelectionContainer{ DisableSelection { Text(text = "OTP: $otp" , fontSize = 24.sp , modifier = Modifier.align(Alignment.CenterStart).pointerInput(Unit)
+                        SelectionContainer{ DisableSelection { Text(text = "$otp" , fontSize = 24.sp , modifier = Modifier.align(Alignment.CenterStart).pointerInput(Unit)
                         {
                             detectTapGestures(onLongPress =
                             {
