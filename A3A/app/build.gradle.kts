@@ -20,24 +20,34 @@ android {
         }
     }
 
-    buildTypes {
-        release {
+    buildTypes{
+        release{
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt") , "proguard-rules.pro")
         }
     }
 
-    // Use androidComponents instead for modern AGP
     afterEvaluate {
-        tasks.named("packageRelease") {
+        // For generating AAB (Debug)
+        tasks.named("bundleDebug") {
             doLast {
-                val releaseOutputDir = file("$buildDir/outputs/apk/release")
-                val apkFile = releaseOutputDir.listFiles()?.firstOrNull { it.name.endsWith(".apk") }
-                apkFile?.renameTo(File(releaseOutputDir, "A3A.apk"))
+                val debugOutputDir = file("$buildDir/outputs/bundle/debug")
+                val aabFile = debugOutputDir.listFiles()?.firstOrNull { it.name.endsWith(".aab") }
+                aabFile?.let {
+                    it.renameTo(File(debugOutputDir, "A3A-debug.aab"))
+                }
+            }
+        }
+
+        // For generating AAB (Release)
+        tasks.named("bundleRelease") {
+            doLast {
+                val releaseOutputDir = file("$buildDir/outputs/bundle/release")
+                val aabFile = releaseOutputDir.listFiles()?.firstOrNull { it.name.endsWith(".aab") }
+                aabFile?.let {
+                    it.renameTo(File(releaseOutputDir, "A3A.aab"))
+                }
             }
         }
 
@@ -45,7 +55,15 @@ android {
             doLast {
                 val debugOutputDir = file("$buildDir/outputs/apk/debug")
                 val apkFile = debugOutputDir.listFiles()?.firstOrNull { it.name.endsWith(".apk") }
-                apkFile?.renameTo(File(debugOutputDir, "A3A.apk"))
+                apkFile?.renameTo(File(debugOutputDir , "A3A Debug.apk"))
+            }
+        }
+
+        tasks.named("packageRelease") {
+            doLast{
+                val releaseOutputDir = file("$buildDir/outputs/apk/release")
+                val apkFile = releaseOutputDir.listFiles()?.firstOrNull { it.name.endsWith(".apk") }
+                apkFile?.renameTo(File(releaseOutputDir , "A3A.apk"))
             }
         }
     }
