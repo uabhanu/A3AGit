@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
@@ -62,6 +63,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import com.Able3Studios.A3A.ui.theme.A3ATheme
 import java.nio.ByteBuffer
@@ -128,11 +130,17 @@ class MainActivity : FragmentActivity()
         sharedPreferences = getSharedPreferences("Able3Studios" , Context.MODE_PRIVATE)
 
         val isDarkTheme = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val splashScreen = installSplashScreen()
         val statusBarColor = if(isDarkTheme) DarkOrange else LightOrange
 
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
         {
             window.statusBarColor = statusBarColor.toArgb()
+        }
+
+        splashScreen.setKeepOnScreenCondition{
+            // Return true if you want to delay the splash screen dismissal (e.g., app loading).
+            false // return false if no delay is needed.
         }
 
         authenticateUser()
